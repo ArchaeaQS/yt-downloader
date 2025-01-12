@@ -2,6 +2,3 @@
 build/
 __pycache__/
 dist/
-*.exe
-*.app
-*.old

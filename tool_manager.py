@@ -1,12 +1,24 @@
 import os
 import subprocess
+from pathlib import Path
 
 import requests
 
 
 class ToolManager:
-    def __init__(self, save_dir):
-        self.save_dir = save_dir
+    def __init__(self, save_dir=None):
+        if save_dir is None:
+            # ユーザーのホームディレクトリから tools ディレクトリを作成
+            self.save_dir = Path.home() / "AppData" / "Local" / "yt-downloader" / "tools"
+            self.save_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.save_dir = Path(save_dir)
+
+    def _get_tool_path(self, tool_name: str) -> Path:
+        return self.save_dir / tool_name
+
+    def check_tool_exists(self, tool_name: str) -> bool:
+        return self._get_tool_path(tool_name).exists()
 
     # ツールの存在確認関数
     def is_tool_installed(self, tool_name: str) -> bool:
@@ -27,60 +39,74 @@ class ToolManager:
         return False
 
     def check_and_download_ffmpeg(self) -> bool:
-        ffmpeg_path = os.path.join(self.save_dir, "ffmpeg.exe")
+        ffmpeg_path = self._get_tool_path("ffmpeg.exe")
 
         # システムパスまたは保存ディレクトリ内の確認
         if self.is_tool_installed("ffmpeg"):
             return True
-        elif os.path.exists(ffmpeg_path):
-            os.environ["PATH"] += os.pathsep + self.save_dir
+        elif ffmpeg_path.exists():
+            os.environ["PATH"] += os.pathsep + str(self.save_dir)
             return True
 
         # ダウンロード
-        url = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-release-essentials.zip"
-        zip_path = os.path.join(self.save_dir, "ffmpeg.zip")
-        if self.download_file(url, zip_path):
-            subprocess.run(
-                [
-                    "powershell",
-                    "-Command",
-                    f"Expand-Archive -Path '{zip_path}' -DestinationPath '{self.save_dir}' -Force",
-                ],
-                check=True,
-            )
-            os.remove(zip_path)
-            extracted_dir = os.path.join(self.save_dir, "ffmpeg")
-            for root, _, files in os.walk(extracted_dir):
-                for file in files:
-                    if file.lower() == "ffmpeg.exe":
-                        os.rename(os.path.join(root, file), ffmpeg_path)
-                        break
-            os.environ["PATH"] += os.pathsep + self.save_dir
-            return True
+        url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+        zip_path = self._get_tool_path("ffmpeg.zip")
+        try:
+            if self.download_file(url, str(zip_path)):
+                # ZIPファイルを解凍
+                subprocess.run(
+                    [
+                        "powershell",
+                        "-Command",
+                        f"Expand-Archive -Path '{zip_path}' -DestinationPath '{self.save_dir}' -Force",
+                    ],
+                    check=True,
+                )
+                zip_path.unlink()
+
+                # binフォルダ内のffmpeg.exeを探して移動
+                bin_path = self.save_dir / "ffmpeg-master-latest-win64-gpl" / "bin" / "ffmpeg.exe"
+                if bin_path.exists():
+                    bin_path.rename(ffmpeg_path)
+
+                    # 不要になったディレクトリを削除
+                    import shutil
+
+                    shutil.rmtree(self.save_dir / "ffmpeg-master-latest-win64-gpl")
+
+                    os.environ["PATH"] += os.pathsep + str(self.save_dir)
+                    return True
+
+                print("ffmpeg.exeが見つかりませんでした")
+                return False
+
+        except Exception as e:
+            print(f"ffmpegのダウンロード中にエラーが発生しました: {e}")
+            return False
         return False
 
     # yt-dlpを確認し、インストールまたはアップデート
     def check_and_download_yt_dlp(self):
-        yt_dlp_path = os.path.join(self.save_dir, "yt-dlp.exe")
+        yt_dlp_path = self._get_tool_path("yt-dlp.exe")
 
-        if os.path.exists(yt_dlp_path):
-            subprocess.run([yt_dlp_path, "-U"], check=True)
+        if yt_dlp_path.exists():
+            subprocess.run([str(yt_dlp_path), "-U"], check=True)
             return True
 
         url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-        return self.download_file(url, yt_dlp_path)
+        return self.download_file(url, str(yt_dlp_path))
 
     # AtomicParsleyを確認し、インストール
     def check_and_download_atomicparsley(self):
-        atomic_path = os.path.join(self.save_dir, "AtomicParsley.exe")
+        atomic_path = self._get_tool_path("AtomicParsley.exe")
 
-        if os.path.exists(atomic_path):
+        if atomic_path.exists():
             return True
 
         url = "https://github.com/wez/atomicparsley/releases/latest/download/AtomicParsleyWindows.zip"
-        zip_path = os.path.join(self.save_dir, "AtomicParsley.zip")
+        zip_path = self._get_tool_path("AtomicParsley.zip")
 
-        if self.download_file(url, zip_path):
+        if self.download_file(url, str(zip_path)):
             subprocess.run(
                 [
                     "powershell",
@@ -89,6 +115,6 @@ class ToolManager:
                 ],
                 check=True,
             )
-            os.remove(zip_path)
+            zip_path.unlink()
             return True
         return False

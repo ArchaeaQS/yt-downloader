@@ -314,7 +314,7 @@ def main() -> None:
     root = tk.Tk()
     _ = YouTubeDownloader(root)
 
-    tool_manager_instance = tool_manager.ToolManager(".")
+    tool_manager_instance = tool_manager.ToolManager()
     tool_manager_instance.check_and_download_ffmpeg()
     tool_manager_instance.check_and_download_yt_dlp()
     tool_manager_instance.check_and_download_atomicparsley()
