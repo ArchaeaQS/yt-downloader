@@ -27,6 +27,10 @@ YouTubeの動画をダウンロードするためのシンプルなデスクト�
 3. "Get cookies.txt LOCALLY"拡張機能を起動し「Copy」を押す
 4. アプリの「Cookie設定」ボタンをクリックし、コピーしたcookieを貼り付けて保存する
 
+### メンバーシップ限定動画を全てダウンロードしたい場合
+
+"メン限動画プレイリストView" (https://chromewebstore.google.com/detail/%E3%83%A1%E3%83%B3%E9%99%90%E5%8B%95%E7%94%BB%E3%83%97%E3%83%AC%E3%82%A4%E3%83%AA%E3%82%B9%E3%83%88view/alipjbeolhembeklphfcehbkgncdlnom) の活用をお勧めします
+
 ## 注意事項
 
 - 著作権法を遵守してご利用ください
