@@ -2,4 +2,6 @@
 build/
 __pycache__/
 dist/
-cookies.txt
+*.exe
+*.app
+*.old
