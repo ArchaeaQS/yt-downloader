@@ -116,7 +116,7 @@ class YouTubeDownloaderUI:
             cookie_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
             cookie_dir.mkdir(exist_ok=True, parents=True)
             cookie_file = cookie_dir / "cookies.txt"
-            cookie_file.write_text(text_area.get("1.0", tk.END), encoding="utf-8")
+            cookie_file.write_text(text_area.get("1.0", tk.END).strip(), encoding="utf-8")
             os.chmod(str(cookie_file), 0o600)  # ユーザーのみ読み書き可能に設定
             cookie_window.destroy()
 
@@ -259,7 +259,7 @@ class YouTubeDownloader:
         }
 
         cookie_file = Path.home() / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
-        if cookie_file.exists():
+        if cookie_file.exists() and self._load_current_cookies() != "":
             ydl_opts["cookiefile"] = str(cookie_file)
 
         return ydl_opts
