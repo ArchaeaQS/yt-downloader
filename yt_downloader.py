@@ -28,6 +28,10 @@ class UIState:
         self.url_var = tk.StringVar()
         self.quality_var = tk.StringVar()
         self.progress_var = tk.DoubleVar()
+        self.get_cookies_from_browser = tk.BooleanVar(value=False)
+
+    def toggle_cookies(self) -> None:
+        self.get_cookies_from_browser = not self.get_cookies_from_browser
 
 
 class YouTubeDownloaderUI:
@@ -35,6 +39,9 @@ class YouTubeDownloaderUI:
 
     def __init__(self, root: tk.Tk, downloader: "YouTubeDownloader") -> None:
         self.root = root
+        self.setting_frame = tk.Frame()
+        self.cookies_frame = tk.Frame()
+        self.button_frame = tk.Frame()
         self.downloader = downloader
         self.state = UIState()
         self.create_ui()
@@ -44,24 +51,28 @@ class YouTubeDownloaderUI:
         self._create_save_folder_section()
         self._create_url_section()
         self._create_quality_section()
+        self._create_get_cookies_setting_section()
         self._create_progress_section()
         self._create_button_section()
 
     def _create_save_folder_section(self) -> None:
-        tk.Label(self.root, text="保存フォルダ:").grid(row=0, column=0, padx=5, pady=5)
-        tk.Entry(self.root, textvariable=self.state.save_folder_var, width=40).grid(row=0, column=1, padx=5, pady=5)
-        tk.Button(self.root, text="フォルダ選択", command=self.choose_save_folder).grid(
+        self.setting_frame.pack()
+        tk.Label(self.setting_frame, text="保存フォルダ:").grid(row=0, column=0, padx=5, pady=5)
+        tk.Entry(self.setting_frame, textvariable=self.state.save_folder_var, width=40).grid(
+            row=0, column=1, padx=5, pady=5
+        )
+        tk.Button(self.setting_frame, text="フォルダ選択", command=self.choose_save_folder).grid(
             row=0, column=2, padx=5, pady=5
         )
 
     def _create_url_section(self) -> None:
-        tk.Label(self.root, text="動画URL:").grid(row=1, column=0, padx=5, pady=5)
-        tk.Entry(self.root, textvariable=self.state.url_var, width=40).grid(row=1, column=1, padx=5, pady=5)
+        tk.Label(self.setting_frame, text="動画URL:").grid(row=1, column=0, padx=5, pady=5)
+        tk.Entry(self.setting_frame, textvariable=self.state.url_var, width=40).grid(row=1, column=1, padx=5, pady=5)
 
     def _create_quality_section(self) -> None:
-        tk.Label(self.root, text="画質:").grid(row=2, column=0, padx=5, pady=5)
+        tk.Label(self.setting_frame, text="画質:").grid(row=2, column=0, padx=5, pady=5)
         self.quality_combobox = ttk.Combobox(
-            self.root,
+            self.setting_frame,
             textvariable=self.state.quality_var,
             values=config.quality_options,
             state="readonly",
@@ -70,26 +81,44 @@ class YouTubeDownloaderUI:
         self.quality_combobox.set(config.quality_options[config.quality_default_idx])
         self.quality_combobox.grid(row=2, column=1, padx=5, pady=5)
 
-    def _create_progress_section(self) -> None:
-        self.progress_bar = ttk.Progressbar(
-            self.root, variable=self.state.progress_var, maximum=100, mode="determinate"
+    def _create_get_cookies_setting_section(self) -> None:
+        self.cookies_frame.pack(fill="x")
+        self.cookies_setting_button = tk.Button(
+            self.cookies_frame, text="Cookie設定", command=self.downloader.set_cookies
         )
-        self.progress_bar.grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
+        self.cookies_setting_button.pack(side="left", padx=5, pady=5)
+        self.cookies_toggle_button = tk.Checkbutton(
+            self.cookies_frame,
+            variable=self.state.get_cookies_from_browser,
+            text="ブラウザからCookieを使用する",
+            command=self.state.toggle_cookies,
+        )
+        self.cookies_toggle_button.pack(side="right", padx=5, pady=5)
+
+    def _create_progress_section(self) -> None:
+        self.button_frame.pack(fill="x")
+        self.progress_bar = ttk.Progressbar(
+            self.button_frame, variable=self.state.progress_var, maximum=100, mode="determinate"
+        )
+        self.progress_bar.grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
         self.progress_bar.grid_remove()
 
-        self.status_label = tk.Label(self.root, text="")
-        self.status_label.grid(row=4, column=0, columnspan=3, padx=5, pady=5)
+        self.status_label = tk.Label(self.button_frame, text="")
+        self.status_label.grid(row=1, column=0, columnspan=3, padx=5, pady=5)
 
     def _create_button_section(self) -> None:
-        tk.Button(self.root, text="Cookie設定", command=self.downloader.set_cookies).grid(
-            row=5, column=0, padx=5, pady=5
+        self.button_frame.grid_columnconfigure(0, weight=2)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
+        self.download_button = tk.Button(
+            self.button_frame, text="ダウンロード開始", command=self.downloader.start_download
         )
+        self.download_button.grid(row=2, column=1, padx=5, pady=5)
 
-        self.download_button = tk.Button(self.root, text="ダウンロード開始", command=self.downloader.start_download)
-        self.download_button.grid(row=5, column=1, padx=5, pady=5)
-
-        self.stop_button = tk.Button(self.root, text="停止", command=self.downloader.stop_download, state=tk.DISABLED)
-        self.stop_button.grid(row=5, column=2, padx=5, pady=5)
+        self.stop_button = tk.Button(
+            self.button_frame, text="停止", command=self.downloader.stop_download, state=tk.DISABLED
+        )
+        self.stop_button.grid(row=2, column=2, padx=5, pady=5)
 
     def choose_save_folder(self) -> None:
         folder = filedialog.askdirectory()
@@ -169,6 +198,7 @@ class YouTubeDownloader:
         self.ui.stop_button.config(state=tk.NORMAL)
 
     def stop_download(self) -> None:
+        # TODO: ダウンロード停止処理の修正
         self.download_state.stop_requested = True
 
         if self.download_state.current_download_task and not self.download_state.current_download_task.done():
@@ -202,21 +232,36 @@ class YouTubeDownloader:
             return ""
 
     async def download_video(self) -> None:
-        def _download_video(quality, save_folder, url):
+        def _download_video(self, quality, save_folder, url):
             yt_dlp_path = self.tool_manager_instance._get_tool_path("yt-dlp.exe")
-            subprocess.run(
-                [
-                    str(yt_dlp_path),
-                    "--cookies",
-                    self._get_cookie_file_path(),
-                    "-f",
-                    f"bestvideo[height<={int(quality)}][ext=mp4]+bestaudio[ext=m4a]/best",
-                    "-o",
-                    os.path.join(save_folder, "%(title)s.%(ext)s"),
-                    f"{url}",
-                ],
-                check=True,
-            )
+            if self.ui.state.get_cookies_from_browser:
+                subprocess.run(
+                    [
+                        str(yt_dlp_path),
+                        "--cookies-from-browser",
+                        "firefox",
+                        "-f",
+                        f"bestvideo[height<={int(quality)}][ext=mp4]+bestaudio[ext=m4a]/best",
+                        "-o",
+                        os.path.join(save_folder, "%(title)s.%(ext)s"),
+                        f"{url}",
+                    ],
+                    check=True,
+                )
+            else:
+                subprocess.run(
+                    [
+                        str(yt_dlp_path),
+                        "--cookies",
+                        self._get_cookie_file_path(),
+                        "-f",
+                        f"bestvideo[height<={int(quality)}][ext=mp4]+bestaudio[ext=m4a]/best",
+                        "-o",
+                        os.path.join(save_folder, "%(title)s.%(ext)s"),
+                        f"{url}",
+                    ],
+                    check=True,
+                )
 
         url = self.ui.state.url_var.get().strip()
         save_folder = self.ui.state.save_folder_var.get()
@@ -234,7 +279,7 @@ class YouTubeDownloader:
                 async def download_with_check():
                     if self.download_state.stop_requested:
                         return
-                    await asyncio.to_thread(_download_video, quality, save_folder, url)
+                    await asyncio.to_thread(_download_video, self, quality, save_folder, url)
                     if self.download_state.stop_requested:
                         return
 
@@ -280,6 +325,7 @@ class YouTubeDownloader:
             self._update_finished_progress()
 
     def _update_download_progress(self, data: dict) -> None:
+        # TODO: プログレスバーの修正
         try:
             downloaded = data.get("downloaded_bytes", 0)
             total = data.get("total_bytes") or data.get("total_bytes_estimate", 0)
