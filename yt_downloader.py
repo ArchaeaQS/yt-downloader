@@ -1,12 +1,11 @@
 import asyncio
 import os
+import subprocess
 import tkinter as tk
 from concurrent.futures import Future
 from pathlib import Path
 from threading import Thread
 from tkinter import filedialog, messagebox, ttk
-
-from yt_dlp import YoutubeDL
 
 import config
 import tool_manager
@@ -19,7 +18,6 @@ class DownloadState:
         self.is_downloading = False
         self.stop_requested = False
         self.current_download_task: Future | None = None
-        self.ydl: YoutubeDL | None = None
 
 
 class UIState:
@@ -139,6 +137,11 @@ class YouTubeDownloader:
         self.thread = Thread(target=self._start_asyncio_loop, daemon=True)
         self.thread.start()
 
+        self.tool_manager_instance = tool_manager.ToolManager()
+        self.tool_manager_instance.check_and_download_ffmpeg()
+        self.tool_manager_instance.check_and_download_yt_dlp()
+        self.tool_manager_instance.check_and_download_atomicparsley()
+
     def _start_asyncio_loop(self) -> None:
         asyncio.set_event_loop(self.asyncio_loop)
         self.asyncio_loop.run_forever()
@@ -167,9 +170,6 @@ class YouTubeDownloader:
 
     def stop_download(self) -> None:
         self.download_state.stop_requested = True
-        if self.download_state.ydl:
-            self.download_state.ydl._download_retcode = 1
-            self.download_state.ydl = None
 
         if self.download_state.current_download_task and not self.download_state.current_download_task.done():
             self.download_state.current_download_task.cancel()
@@ -184,6 +184,9 @@ class YouTubeDownloader:
         self.ui.download_button.config(state=tk.NORMAL)
         self.ui.stop_button.config(state=tk.DISABLED)
 
+    def _get_cookie_file_path(self) -> str:
+        return Path.home() / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
+
     def set_cookies(self) -> None:
         try:
             current_cookies = self._load_current_cookies()
@@ -193,12 +196,28 @@ class YouTubeDownloader:
 
     def _load_current_cookies(self) -> str:
         try:
-            cookie_file = Path.home() / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
+            cookie_file = self._get_cookie_file_path()
             return cookie_file.read_text(encoding="utf-8")
         except FileNotFoundError:
             return ""
 
     async def download_video(self) -> None:
+        def _download_video(quality, save_folder, url):
+            yt_dlp_path = self.tool_manager_instance._get_tool_path("yt-dlp.exe")
+            subprocess.run(
+                [
+                    str(yt_dlp_path),
+                    "--cookies",
+                    self._get_cookie_file_path(),
+                    "-f",
+                    f"bestvideo[height<={int(quality)}][ext=mp4]+bestaudio[ext=m4a]/best",
+                    "-o",
+                    os.path.join(save_folder, "%(title)s.%(ext)s"),
+                    f"{url}",
+                ],
+                check=True,
+            )
+
         url = self.ui.state.url_var.get().strip()
         save_folder = self.ui.state.save_folder_var.get()
         quality = self.ui.state.quality_var.get().split()[0].replace("p", "")
@@ -206,19 +225,16 @@ class YouTubeDownloader:
         if not self._validate_download_params(url, save_folder):
             return
 
-        ydl_opts = self._create_ydl_options(save_folder, quality)
-
         if self.download_state.stop_requested:
             return
 
         try:
-            self.download_state.ydl = YoutubeDL(ydl_opts)
-            if not self.download_state.stop_requested and self.download_state.ydl:
+            if not self.download_state.stop_requested:
 
                 async def download_with_check():
-                    if self.download_state.stop_requested or not self.download_state.ydl:
+                    if self.download_state.stop_requested:
                         return
-                    await asyncio.to_thread(self.download_state.ydl.download, [url])
+                    await asyncio.to_thread(_download_video, quality, save_folder, url)
                     if self.download_state.stop_requested:
                         return
 
@@ -240,30 +256,6 @@ class YouTubeDownloader:
             return False
         return True
 
-    def _create_ydl_options(self, save_folder: str, quality: str) -> dict:
-        ydl_opts = {
-            "outtmpl": os.path.join(save_folder, "%(title)s.%(ext)s"),
-            "format": f"bestvideo[height<={int(quality)}][ext=mp4]+bestaudio[ext=m4a]"
-            f"/best[height<={int(quality)}][ext=mp4]/best",
-            "merge_output_format": "mp4",
-            "verbose": True,
-            "no_warnings": False,
-            "progress_hooks": [self.update_progress],
-            "writethumbnail": True,
-            "postprocessors": [
-                {
-                    "key": "EmbedThumbnail",
-                }
-            ],
-            "quiet": False,
-        }
-
-        cookie_file = Path.home() / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
-        if cookie_file.exists() and self._load_current_cookies() != "":
-            ydl_opts["cookiefile"] = str(cookie_file)
-
-        return ydl_opts
-
     def _show_success_message(self) -> None:
         self.root.after(0, lambda: messagebox.showinfo("成功", "動画のダウンロードが完了しました！"))
         self.root.after(0, self.ui.progress_bar.grid_remove)
@@ -275,7 +267,6 @@ class YouTubeDownloader:
     def _cleanup_after_download(self) -> None:
         self.download_state.is_downloading = False
         self.download_state.stop_requested = False
-        self.download_state.ydl = None
         self.root.after(0, lambda: self.ui.download_button.config(state=tk.NORMAL))
         self.root.after(0, lambda: self.ui.stop_button.config(state=tk.DISABLED))
 
@@ -296,7 +287,7 @@ class YouTubeDownloader:
             if total > 0:
                 percent = (downloaded / total) * 100
                 speed = data.get("speed", 0)
-                speed_str = f"{speed/1024/1024:.1f} MB/s" if speed else "計算中..."
+                speed_str = f"{speed / 1024 / 1024:.1f} MB/s" if speed else "計算中..."
 
                 self.root.after(0, lambda: self.ui.state.progress_var.set(percent))
                 self.root.after(
@@ -313,11 +304,6 @@ class YouTubeDownloader:
 def main() -> None:
     root = tk.Tk()
     _ = YouTubeDownloader(root)
-
-    tool_manager_instance = tool_manager.ToolManager()
-    tool_manager_instance.check_and_download_ffmpeg()
-    tool_manager_instance.check_and_download_yt_dlp()
-    tool_manager_instance.check_and_download_atomicparsley()
 
     root.mainloop()
 
