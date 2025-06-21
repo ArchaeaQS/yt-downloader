@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -6,7 +9,7 @@ import requests
 
 
 class ToolManager:
-    def __init__(self, save_dir=None):
+    def __init__(self, save_dir: str | None = None) -> None:
         if save_dir is None:
             # ユーザーのホームディレクトリから tools ディレクトリを作成
             self.save_dir = Path.home() / "AppData" / "Local" / "yt-downloader" / "tools"
@@ -18,10 +21,12 @@ class ToolManager:
         return self.save_dir / tool_name
 
     def check_tool_exists(self, tool_name: str) -> bool:
-        return self._get_tool_path(tool_name).exists()
+        """ローカルディレクトリまたはシステムパスでツールの存在確認"""
+        # ローカルディレクトリの確認
+        if self._get_tool_path(tool_name).exists():
+            return True
 
-    # ツールの存在確認関数
-    def is_tool_installed(self, tool_name: str) -> bool:
+        # システムパスの確認
         try:
             subprocess.run([tool_name, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
             return True
@@ -42,9 +47,7 @@ class ToolManager:
         ffmpeg_path = self._get_tool_path("ffmpeg.exe")
 
         # システムパスまたは保存ディレクトリ内の確認
-        if self.is_tool_installed("ffmpeg"):
-            return True
-        elif ffmpeg_path.exists():
+        if self.check_tool_exists("ffmpeg.exe"):
             os.environ["PATH"] += os.pathsep + str(self.save_dir)
             return True
 
@@ -70,8 +73,6 @@ class ToolManager:
                     bin_path.rename(ffmpeg_path)
 
                     # 不要になったディレクトリを削除
-                    import shutil
-
                     shutil.rmtree(self.save_dir / "ffmpeg-master-latest-win64-gpl")
 
                     os.environ["PATH"] += os.pathsep + str(self.save_dir)
@@ -85,8 +86,7 @@ class ToolManager:
             return False
         return False
 
-    # yt-dlpを確認し、インストールまたはアップデート
-    def check_and_download_yt_dlp(self):
+    def check_and_download_yt_dlp(self) -> bool:
         yt_dlp_path = self._get_tool_path("yt-dlp.exe")
 
         if yt_dlp_path.exists():
@@ -96,8 +96,7 @@ class ToolManager:
         url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
         return self.download_file(url, str(yt_dlp_path))
 
-    # AtomicParsleyを確認し、インストール
-    def check_and_download_atomicparsley(self):
+    def check_and_download_atomicparsley(self) -> bool:
         atomic_path = self._get_tool_path("AtomicParsley.exe")
 
         if atomic_path.exists():

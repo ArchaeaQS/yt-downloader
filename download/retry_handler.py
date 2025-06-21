@@ -1,7 +1,10 @@
 """ダウンロードリトライとエラーハンドリング"""
+from __future__ import annotations
+
 import asyncio
 import re
-from typing import Callable, List, Optional, Tuple
+import subprocess
+from collections.abc import Callable
 
 
 class RetryConfig:
@@ -61,14 +64,14 @@ class RetryHandler:
         self.last_error = ""
         
         # コールバック関数
-        self.on_retry_attempt: Optional[Callable[[int, str], None]] = None
-        self.on_cookie_refresh_request: Optional[Callable[[], bool]] = None
-        self.on_individual_download: Optional[Callable[[str], bool]] = None
+        self.on_retry_attempt: Callable[[int, str], None] | None = None
+        self.on_cookie_refresh_request: Callable[[], bool] | None = None
+        self.on_individual_download: Callable[[str], bool] | None = None
     
     def set_callbacks(self,
-                     on_retry_attempt: Optional[Callable[[int, str], None]] = None,
-                     on_cookie_refresh_request: Optional[Callable[[], bool]] = None,
-                     on_individual_download: Optional[Callable[[str], bool]] = None) -> None:
+                     on_retry_attempt: Callable[[int, str], None] | None = None,
+                     on_cookie_refresh_request: Callable[[], bool] | None = None,
+                     on_individual_download: Callable[[str], bool] | None = None) -> None:
         """コールバック関数の設定"""
         self.on_retry_attempt = on_retry_attempt
         self.on_cookie_refresh_request = on_cookie_refresh_request
@@ -141,10 +144,9 @@ class PlaylistExtractor:
     def __init__(self, yt_dlp_path: str) -> None:
         self.yt_dlp_path = yt_dlp_path
     
-    async def extract_video_urls(self, playlist_url: str) -> List[str]:
+    async def extract_video_urls(self, playlist_url: str) -> list[str]:
         """プレイリストから個別動画URLリストを取得"""
         try:
-            import subprocess
             
             # yt-dlpでプレイリストから動画URLのみを抽出
             cmd = [
@@ -172,10 +174,9 @@ class PlaylistExtractor:
         except Exception:
             return []
     
-    async def extract_video_info(self, playlist_url: str) -> List[Tuple[str, str]]:
+    async def extract_video_info(self, playlist_url: str) -> list[tuple[str, str]]:
         """プレイリストから動画情報（URL, タイトル）を取得"""
         try:
-            import subprocess
             
             cmd = [
                 self.yt_dlp_path,

@@ -1,4 +1,5 @@
 """YouTube Downloader - メインアプリケーション"""
+from __future__ import annotations
 
 import tkinter as tk
 
@@ -91,16 +92,13 @@ class YouTubeDownloaderApp:
 
             if result is not None:
                 # Cookieを保存
-                if self.cookie_manager.save_cookies(result):
-                    self.main_window.show_info("成功", "Cookieを保存しました")
-                else:
+                if not self.cookie_manager.save_cookies(result):
                     self.main_window.show_error("エラー", "Cookieの保存に失敗しました")
         except Exception as e:
             self.main_window.show_error("エラー", f"Cookie設定中にエラーが発生しました: {str(e)}")
 
     def _on_progress_update(self, percent: float, status_text: str) -> None:
         """プログレス更新処理"""
-
         def update_ui():
             self.main_window.progress_tracker.update_progress(percent, status_text)
 
@@ -108,7 +106,6 @@ class YouTubeDownloaderApp:
 
     def _on_status_update(self, status_text: str) -> None:
         """ステータス更新処理"""
-
         def update_ui():
             self.main_window.progress_tracker.set_status(status_text)
 
@@ -116,7 +113,6 @@ class YouTubeDownloaderApp:
 
     def _on_error(self, error_message: str) -> None:
         """エラー処理"""
-
         def show_error():
             self.main_window.set_download_in_progress(False)
             self.main_window.show_error("エラー", error_message)
@@ -125,7 +121,6 @@ class YouTubeDownloaderApp:
 
     def _on_success(self) -> None:
         """成功処理"""
-
         def show_success():
             self.main_window.set_download_in_progress(False)
             self.main_window.show_info("成功", "動画のダウンロードが完了しました！")

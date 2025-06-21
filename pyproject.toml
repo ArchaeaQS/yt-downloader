@@ -1,0 +1,25 @@
+[project]
+name = "yt-downloader"
+version = "0.1.0"
+description = "Japanese YouTube downloader desktop application"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "yt-dlp",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ui*", "download*", "utils*"]
+
+[project.scripts]
+yt-downloader = "main:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pyinstaller",
+]
