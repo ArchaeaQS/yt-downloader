@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['yt_downloader.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[],
