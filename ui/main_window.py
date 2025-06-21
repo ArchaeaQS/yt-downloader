@@ -67,6 +67,9 @@ class MainWindow:
         self.progress_tracker = ProgressTracker(self)
         
         # UIコンポーネントの初期化
+        self.notebook: ttk.Notebook
+        self.download_tab: tk.Frame
+        self.settings_tab: tk.Frame
         self.setting_frame: tk.Frame
         self.cookies_frame: tk.Frame  
         self.button_frame: tk.Frame
@@ -94,7 +97,35 @@ class MainWindow:
 
     def _create_ui(self) -> None:
         """UIコンポーネントの作成と配置"""
-        self._create_frames()
+        self._create_notebook()
+        self._create_download_tab()
+        self._create_settings_tab()
+
+    def _create_notebook(self) -> None:
+        """ノートブック（タブコンテナ）の作成"""
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # タブフレームの作成
+        self.download_tab = tk.Frame(self.notebook)
+        self.settings_tab = tk.Frame(self.notebook)
+        
+        # タブを追加
+        self.notebook.add(self.download_tab, text="ダウンロード")
+        self.notebook.add(self.settings_tab, text="設定")
+
+    def _create_download_tab(self) -> None:
+        """ダウンロードタブの作成"""
+        # フレームの作成
+        self.setting_frame = tk.Frame(self.download_tab)
+        self.cookies_frame = tk.Frame(self.download_tab)
+        self.button_frame = tk.Frame(self.download_tab)
+        
+        self.setting_frame.pack(padx=10, pady=10)
+        self.cookies_frame.pack(fill="x", padx=10, pady=5)
+        self.button_frame.pack(fill="x", padx=10, pady=10)
+        
+        # セクションの作成
         self._create_save_folder_section()
         self._create_url_section()
         self._create_quality_section()
@@ -102,15 +133,17 @@ class MainWindow:
         self._create_progress_section()
         self._create_button_section()
 
-    def _create_frames(self) -> None:
-        """フレームの作成"""
-        self.setting_frame = tk.Frame(self.root)
-        self.cookies_frame = tk.Frame(self.root)
-        self.button_frame = tk.Frame(self.root)
+    def _create_settings_tab(self) -> None:
+        """設定タブの作成"""
+        # 設定用のフレーム
+        settings_frame = tk.Frame(self.settings_tab)
+        settings_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        self.setting_frame.pack()
-        self.cookies_frame.pack(fill="x")
-        self.button_frame.pack(fill="x")
+        # リトライ設定セクション
+        self._create_retry_settings_section(settings_frame)
+        
+        # 詳細設定セクション
+        self._create_advanced_settings_section(settings_frame)
 
     def _create_save_folder_section(self) -> None:
         """保存フォルダ選択セクションの作成"""
@@ -149,12 +182,80 @@ class MainWindow:
             text="Cookie設定", 
             command=self._on_set_cookies
         ).pack(side="left", padx=5, pady=5)
+
+    def _create_retry_settings_section(self, parent: tk.Widget) -> None:
+        """リトライ設定セクションの作成"""
+        # リトライ設定グループ
+        retry_group = ttk.LabelFrame(parent, text="エラー対応設定", padding=10)
+        retry_group.pack(fill="x", pady=(0, 10))
         
+        # リトライ有効化チェックボックス
         tk.Checkbutton(
-            self.cookies_frame,
+            retry_group,
+            variable=self.state.enable_retry,
+            text="エラー時の自動リトライを有効にする",
+        ).pack(anchor="w", pady=2)
+        
+        # 最大リトライ回数設定
+        retry_count_frame = tk.Frame(retry_group)
+        retry_count_frame.pack(anchor="w", pady=2)
+        
+        tk.Label(retry_count_frame, text="最大リトライ回数:").pack(side="left")
+        retry_spinbox = tk.Spinbox(
+            retry_count_frame,
+            from_=1,
+            to=10,
+            width=5,
+            textvariable=self.state.max_retries
+        )
+        retry_spinbox.pack(side="left", padx=(5, 0))
+        tk.Label(retry_count_frame, text="回").pack(side="left", padx=(2, 0))
+        
+        # プレイリスト個別ダウンロード設定
+        tk.Checkbutton(
+            retry_group,
+            variable=self.state.enable_individual_download,
+            text="プレイリストでエラーが発生した場合、個別動画として再ダウンロードを試行する",
+            wraplength=400
+        ).pack(anchor="w", pady=2)
+
+    def _create_advanced_settings_section(self, parent: tk.Widget) -> None:
+        """詳細設定セクションの作成"""
+        # 詳細設定グループ
+        advanced_group = ttk.LabelFrame(parent, text="詳細設定", padding=10)
+        advanced_group.pack(fill="x", pady=(0, 10))
+        
+        # Cookie自動更新設定
+        tk.Checkbutton(
+            advanced_group,
             variable=self.state.get_cookies_from_browser,
-            text="ブラウザからCookieを使用する",
-        ).pack(side="right", padx=5, pady=5)
+            text="ブラウザからCookieを自動取得する（Firefox）",
+        ).pack(anchor="w", pady=2)
+        
+        # 設定保存・読み込みボタン
+        button_frame = tk.Frame(advanced_group)
+        button_frame.pack(fill="x", pady=(10, 0))
+        
+        tk.Button(
+            button_frame,
+            text="設定を保存",
+            command=self._save_settings
+        ).pack(side="left", padx=(0, 5))
+        
+        tk.Button(
+            button_frame,
+            text="設定を読み込み",
+            command=self._load_settings
+        ).pack(side="left")
+        
+        # 説明文
+        info_label = tk.Label(
+            advanced_group,
+            text="※ 設定はアプリケーション終了時に自動保存されます",
+            font=("", 8),
+            fg="gray"
+        )
+        info_label.pack(anchor="w", pady=(5, 0))
 
     def _create_progress_section(self) -> None:
         """プログレスセクションの作成"""
@@ -237,3 +338,122 @@ class MainWindow:
     def show_info(self, title: str, message: str) -> None:
         """情報ダイアログの表示"""
         messagebox.showinfo(title, message)
+    
+    def show_question(self, title: str, message: str) -> bool:
+        """質問ダイアログの表示"""
+        return messagebox.askyesno(title, message)
+
+    def _save_settings(self) -> None:
+        """設定の保存"""
+        try:
+            import json
+            from pathlib import Path
+            
+            settings = {
+                "enable_retry": self.state.enable_retry.get(),
+                "max_retries": self.state.max_retries.get(),
+                "enable_individual_download": self.state.enable_individual_download.get(),
+                "get_cookies_from_browser": self.state.get_cookies_from_browser.get(),
+                "quality_default": self.state.quality_var.get(),
+                "last_save_folder": self.state.save_folder_var.get()
+            }
+            
+            settings_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
+            settings_dir.mkdir(exist_ok=True, parents=True)
+            settings_file = settings_dir / "settings.json"
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            
+            self.show_info("設定保存", "設定を保存しました")
+            
+        except Exception as e:
+            self.show_error("設定保存エラー", f"設定の保存に失敗しました: {str(e)}")
+
+    def _load_settings(self) -> None:
+        """設定の読み込み"""
+        try:
+            import json
+            from pathlib import Path
+            
+            settings_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
+            settings_file = settings_dir / "settings.json"
+            
+            if not settings_file.exists():
+                self.show_info("設定読み込み", "保存された設定が見つかりません")
+                return
+            
+            with open(settings_file, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+            
+            # 設定を復元
+            self.state.enable_retry.set(settings.get("enable_retry", True))
+            self.state.max_retries.set(settings.get("max_retries", 3))
+            self.state.enable_individual_download.set(settings.get("enable_individual_download", True))
+            self.state.get_cookies_from_browser.set(settings.get("get_cookies_from_browser", False))
+            
+            if settings.get("quality_default"):
+                self.state.quality_var.set(settings["quality_default"])
+            
+            if settings.get("last_save_folder"):
+                self.state.save_folder_var.set(settings["last_save_folder"])
+            
+            self.show_info("設定読み込み", "設定を読み込みました")
+            
+        except Exception as e:
+            self.show_error("設定読み込みエラー", f"設定の読み込みに失敗しました: {str(e)}")
+
+    def load_settings_on_startup(self) -> None:
+        """起動時の設定読み込み"""
+        try:
+            import json
+            from pathlib import Path
+            
+            settings_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
+            settings_file = settings_dir / "settings.json"
+            
+            if settings_file.exists():
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                
+                # 設定を復元（エラーダイアログは表示しない）
+                self.state.enable_retry.set(settings.get("enable_retry", True))
+                self.state.max_retries.set(settings.get("max_retries", 3))
+                self.state.enable_individual_download.set(settings.get("enable_individual_download", True))
+                self.state.get_cookies_from_browser.set(settings.get("get_cookies_from_browser", False))
+                
+                if settings.get("quality_default"):
+                    self.state.quality_var.set(settings["quality_default"])
+                
+                if settings.get("last_save_folder"):
+                    self.state.save_folder_var.set(settings["last_save_folder"])
+                    
+        except Exception:
+            # 起動時は静かに失敗する
+            pass
+
+    def save_settings_on_exit(self) -> None:
+        """終了時の設定保存"""
+        try:
+            import json
+            from pathlib import Path
+            
+            settings = {
+                "enable_retry": self.state.enable_retry.get(),
+                "max_retries": self.state.max_retries.get(),
+                "enable_individual_download": self.state.enable_individual_download.get(),
+                "get_cookies_from_browser": self.state.get_cookies_from_browser.get(),
+                "quality_default": self.state.quality_var.get(),
+                "last_save_folder": self.state.save_folder_var.get()
+            }
+            
+            settings_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
+            settings_dir.mkdir(exist_ok=True, parents=True)
+            settings_file = settings_dir / "settings.json"
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+                
+        except Exception:
+            # 終了時は静かに失敗する
+            pass

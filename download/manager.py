@@ -10,6 +10,7 @@ from threading import Thread
 from typing import AsyncIterable, Callable, Optional
 
 import tool_manager
+from download.retry_handler import RetryHandler, RetryConfig, PlaylistExtractor
 
 
 class DownloadState:
@@ -35,6 +36,12 @@ class DownloadManager:
         self.status_callback: Optional[Callable[[str], None]] = None
         self.error_callback: Optional[Callable[[str], None]] = None
         self.success_callback: Optional[Callable[[], None]] = None
+        self.cookie_refresh_callback: Optional[Callable[[], bool]] = None
+        
+        # リトライ機能
+        self.retry_config = RetryConfig()
+        self.retry_handler = RetryHandler(self.retry_config)
+        self.playlist_extractor: Optional[PlaylistExtractor] = None
 
         # 非同期ループとスレッドの初期化
         self.asyncio_loop = asyncio.new_event_loop()
@@ -43,6 +50,9 @@ class DownloadManager:
 
         # ツールの初期化
         self._initialize_tools()
+        
+        # リトライハンドラーのセットアップ
+        self._setup_retry_handler()
 
     def _start_asyncio_loop(self) -> None:
         """非同期ループの開始"""
@@ -54,6 +64,18 @@ class DownloadManager:
         self.tool_manager_instance.check_and_download_ffmpeg()
         self.tool_manager_instance.check_and_download_yt_dlp()
         self.tool_manager_instance.check_and_download_atomicparsley()
+        
+        # プレイリスト抽出器の初期化
+        yt_dlp_path = str(self.tool_manager_instance._get_tool_path("yt-dlp.exe"))
+        self.playlist_extractor = PlaylistExtractor(yt_dlp_path)
+    
+    def _setup_retry_handler(self) -> None:
+        """リトライハンドラーのセットアップ"""
+        self.retry_handler.set_callbacks(
+            on_retry_attempt=self._on_retry_attempt,
+            on_cookie_refresh_request=self._on_cookie_refresh_request,
+            on_individual_download=self._on_individual_download
+        )
 
     def set_callbacks(
         self,
@@ -61,12 +83,14 @@ class DownloadManager:
         status_callback: Optional[Callable[[str], None]] = None,
         error_callback: Optional[Callable[[str], None]] = None,
         success_callback: Optional[Callable[[], None]] = None,
+        cookie_refresh_callback: Optional[Callable[[], bool]] = None,
     ) -> None:
         """コールバック関数の設定"""
         self.progress_callback = progress_callback
         self.status_callback = status_callback
         self.error_callback = error_callback
         self.success_callback = success_callback
+        self.cookie_refresh_callback = cookie_refresh_callback
 
     def start_download(self, url: str, save_folder: str, quality: str, use_browser_cookies: bool) -> bool:
         """ダウンロードの開始"""
@@ -315,6 +339,78 @@ class DownloadManager:
         except Exception:
             # プログレス解析エラーは無視
             pass
+
+    def _on_retry_attempt(self, retry_count: int, error_message: str) -> None:
+        """リトライ試行時のコールバック"""
+        if self.status_callback:
+            self.status_callback(f"リトライ中 ({retry_count}回目): {error_message[:50]}...")
+
+    def _on_cookie_refresh_request(self) -> bool:
+        """Cookie更新要求時のコールバック"""
+        if self.cookie_refresh_callback:
+            return self.cookie_refresh_callback()
+        return False
+
+    async def _on_individual_download(self, playlist_url: str) -> bool:
+        """プレイリスト個別ダウンロード処理"""
+        if not self.playlist_extractor:
+            return False
+            
+        try:
+            if self.status_callback:
+                self.status_callback("プレイリストから動画リストを取得中...")
+            
+            # プレイリストから個別動画URLを取得
+            video_info = await self.playlist_extractor.extract_video_info(playlist_url)
+            
+            if not video_info:
+                if self.error_callback:
+                    self.error_callback("プレイリストから動画リストを取得できませんでした")
+                return False
+            
+            if self.status_callback:
+                self.status_callback(f"プレイリストから{len(video_info)}個の動画を検出。個別ダウンロードを開始...")
+            
+            success_count = 0
+            total_count = len(video_info)
+            
+            for i, (video_url, title) in enumerate(video_info, 1):
+                if self.state.stop_requested:
+                    break
+                    
+                try:
+                    if self.status_callback:
+                        self.status_callback(f"動画 {i}/{total_count}: {title[:30]}...")
+                    
+                    # 個別動画のダウンロード実行
+                    await self._execute_download(
+                        video_url, 
+                        # 現在の設定を使用
+                        self.state.save_folder if hasattr(self.state, 'save_folder') else "",
+                        self.state.quality if hasattr(self.state, 'quality') else "1080",
+                        self.state.use_browser_cookies if hasattr(self.state, 'use_browser_cookies') else False
+                    )
+                    success_count += 1
+                    
+                except Exception as e:
+                    if self.error_callback:
+                        self.error_callback(f"動画 '{title}' のダウンロードに失敗: {str(e)[:50]}...")
+                    continue
+            
+            if self.status_callback:
+                self.status_callback(f"個別ダウンロード完了: {success_count}/{total_count} 成功")
+            
+            return success_count > 0
+            
+        except Exception as e:
+            if self.error_callback:
+                self.error_callback(f"個別ダウンロード処理エラー: {str(e)}")
+            return False
+
+    def update_retry_config(self, enable_retry: bool, max_retries: int, enable_individual_download: bool) -> None:
+        """リトライ設定の更新"""
+        self.retry_config.max_retries = max_retries if enable_retry else 0
+        self.retry_config.individual_download_on_playlist_fail = enable_individual_download
 
 
 # 型チェック用のAsyncIterableのインポート

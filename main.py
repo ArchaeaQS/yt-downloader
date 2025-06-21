@@ -16,6 +16,12 @@ class YouTubeDownloaderApp:
         self.cookie_manager = CookieManager()
         self.main_window = MainWindow(self.root)
 
+        # 起動時設定の読み込み
+        self.main_window.load_settings_on_startup()
+        
+        # 終了時処理の設定
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+
         self._setup_callbacks()
 
     def _setup_callbacks(self) -> None:
@@ -31,6 +37,7 @@ class YouTubeDownloaderApp:
             status_callback=self._on_status_update,
             error_callback=self._on_error,
             success_callback=self._on_success,
+            cookie_refresh_callback=self._on_cookie_refresh_request,
         )
 
     def _start_download(self) -> None:
@@ -49,6 +56,13 @@ class YouTubeDownloaderApp:
         if not save_folder:
             self.main_window.show_error("エラー", "保存フォルダを選択してください")
             return
+
+        # リトライ設定の更新
+        self.download_manager.update_retry_config(
+            enable_retry=self.main_window.state.enable_retry.get(),
+            max_retries=self.main_window.state.max_retries.get(),
+            enable_individual_download=self.main_window.state.enable_individual_download.get()
+        )
 
         # UIを更新
         self.main_window.set_download_in_progress(True)
@@ -117,6 +131,48 @@ class YouTubeDownloaderApp:
             self.main_window.show_info("成功", "動画のダウンロードが完了しました！")
 
         self.root.after(0, show_success)
+
+    def _on_cookie_refresh_request(self) -> bool:
+        """Cookie更新要求の処理"""
+        def request_cookie_refresh():
+            result = self.main_window.show_question(
+                "Cookie更新", 
+                "Cookieの期限が切れている可能性があります。\n新しいCookieを設定しますか？"
+            )
+            if result:
+                self._set_cookies()
+                return True
+            return False
+        
+        # メインスレッドで実行
+        result = [False]
+        def run_in_main():
+            result[0] = request_cookie_refresh()
+        
+        self.root.after(0, run_in_main)
+        # 結果を待機（簡易的な同期処理）
+        import time
+        timeout = 10  # 10秒でタイムアウト
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            self.root.update()
+            if result[0] is not None:
+                break
+            time.sleep(0.1)
+        
+        return result[0]
+
+    def _on_closing(self) -> None:
+        """アプリケーション終了時の処理"""
+        # 設定を保存
+        self.main_window.save_settings_on_exit()
+        
+        # ダウンロード中の場合は停止
+        if self.download_manager.state.is_downloading:
+            self.download_manager.stop_download()
+        
+        # アプリケーション終了
+        self.root.destroy()
 
     def run(self) -> None:
         """アプリケーションの実行"""

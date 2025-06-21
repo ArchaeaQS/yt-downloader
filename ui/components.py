@@ -15,6 +15,11 @@ class UIState:
         self.quality_var = tk.StringVar()
         self.progress_var = tk.DoubleVar()
         self.get_cookies_from_browser = tk.BooleanVar(value=False)
+        
+        # リトライ設定
+        self.enable_retry = tk.BooleanVar(value=True)
+        self.max_retries = tk.IntVar(value=3)
+        self.enable_individual_download = tk.BooleanVar(value=True)
 
 
 class ProgressTracker:
