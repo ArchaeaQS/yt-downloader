@@ -637,17 +637,22 @@ class DownloadManager:
         cookie_error_keywords = [
             "members-only",
             "private video",
-            "video is private",
+            "video is private", 
             "requires authentication",
             "login required",
             "this video is only available for",
             "membership required",
             "sign in to confirm your age",
-            "video unavailable",
             "access denied",
         ]
+        
+        # より具体的なCookie関連エラーパターン
+        specific_patterns = [
+            "video unavailable" in line_lower and ("private" in line_lower or "member" in line_lower),
+            "video unavailable" in line_lower and "sign in" in line_lower,
+        ]
 
-        return any(keyword in line_lower for keyword in cookie_error_keywords)
+        return any(keyword in line_lower for keyword in cookie_error_keywords) or any(specific_patterns)
 
     def _detect_download_phase(self, line: str) -> str | None:
         """ダウンロードフェーズの詳細判定"""

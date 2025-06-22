@@ -144,6 +144,12 @@ class PlaylistExtractor:
     def __init__(self, yt_dlp_path: str) -> None:
         self.yt_dlp_path = yt_dlp_path
     
+    def _is_valid_youtube_url(self, url: str) -> bool:
+        """YouTube URLの有効性を検証"""
+        # より包括的で重複のないパターン
+        youtube_pattern = r'https?://(?:(?:www|music|gaming)\.)?youtube\.com/|https?://youtu\.be/'
+        return bool(re.match(youtube_pattern, url))
+    
     async def extract_video_urls(self, playlist_url: str) -> list[str]:
         """プレイリストから個別動画URLリストを取得"""
         try:
@@ -166,7 +172,13 @@ class PlaylistExtractor:
             
             if process.returncode == 0:
                 urls = stdout.decode('utf-8', errors='ignore').strip().split('\n')
-                return [url.strip() for url in urls if url.strip()]
+                valid_urls = []
+                for url in urls:
+                    url = url.strip()
+                    # 有効なYouTube URLのみをフィルタリング
+                    if url and self._is_valid_youtube_url(url):
+                        valid_urls.append(url)
+                return valid_urls
             else:
                 # エラーの場合は空リストを返す
                 return []
