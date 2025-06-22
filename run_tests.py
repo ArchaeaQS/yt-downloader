@@ -10,7 +10,7 @@ from pathlib import Path
 def run_tests() -> int:
     """pytestを実行してテスト結果を返す"""
     project_root = Path(__file__).parent
-    
+
     # pytestコマンドを構築
     pytest_cmd = [
         sys.executable, "-m", "pytest",
@@ -19,11 +19,11 @@ def run_tests() -> int:
         "--tb=short",
         "--disable-warnings"
     ]
-    
+
     print("🧪 テストを実行中...")
     print(f"実行コマンド: {' '.join(pytest_cmd)}")
     print("-" * 50)
-    
+
     try:
         result = subprocess.run(pytest_cmd, cwd=project_root)
         return result.returncode
@@ -39,7 +39,7 @@ def run_tests() -> int:
 def run_tests_with_coverage() -> int:
     """カバレッジ付きでテストを実行"""
     project_root = Path(__file__).parent
-    
+
     pytest_cmd = [
         sys.executable, "-m", "pytest",
         str(project_root / "tests"),
@@ -48,11 +48,11 @@ def run_tests_with_coverage() -> int:
         "--cov-report=term-missing",
         "-v"
     ]
-    
+
     print("🧪 カバレッジ付きテストを実行中...")
     print(f"実行コマンド: {' '.join(pytest_cmd)}")
     print("-" * 50)
-    
+
     try:
         result = subprocess.run(pytest_cmd, cwd=project_root)
         if result.returncode == 0:
@@ -67,18 +67,18 @@ def run_tests_with_coverage() -> int:
 def run_specific_test(test_path: str) -> int:
     """特定のテストファイルまたはテストクラスを実行"""
     project_root = Path(__file__).parent
-    
+
     pytest_cmd = [
         sys.executable, "-m", "pytest",
         test_path,
         "-v",
         "--tb=short"
     ]
-    
+
     print(f"🧪 特定のテスト '{test_path}' を実行中...")
     print(f"実行コマンド: {' '.join(pytest_cmd)}")
     print("-" * 50)
-    
+
     try:
         result = subprocess.run(pytest_cmd, cwd=project_root)
         return result.returncode
@@ -91,7 +91,7 @@ def main() -> None:
     """メイン関数"""
     if len(sys.argv) > 1:
         command = sys.argv[1]
-        
+
         if command == "coverage":
             exit_code = run_tests_with_coverage()
         elif command == "specific" and len(sys.argv) > 2:
@@ -113,14 +113,14 @@ def main() -> None:
             exit_code = 1
     else:
         exit_code = run_tests()
-    
+
     # 結果の表示
     print("-" * 50)
     if exit_code == 0:
         print("✅ すべてのテストが成功しました！")
     else:
         print("❌ テストが失敗しました。")
-    
+
     sys.exit(exit_code)
 
 

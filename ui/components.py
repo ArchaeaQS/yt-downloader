@@ -33,13 +33,14 @@ class ProgressTracker:
 
     def update_progress(self, percent: float, status_text: str = "") -> None:
         """プログレスバーと状態テキストを更新"""
-        self.main_window.state.progress_var.set(percent)
+        # CustomTkinterのプログレスバーは0-1の範囲
+        self.main_window.progress_bar.set(percent / 100.0)
         if status_text:
-            self.main_window.status_label.config(text=status_text)
+            self.main_window.status_label.configure(text=status_text)
 
     def show_progress(self) -> None:
         """プログレスバーを表示"""
-        self.main_window.progress_bar.pack(fill="x", pady=(0, 5))
+        self.main_window.progress_bar.pack(fill="x", pady=(10, 10))
 
     def hide_progress(self) -> None:
         """プログレスバーを非表示"""
@@ -47,4 +48,4 @@ class ProgressTracker:
 
     def set_status(self, text: str) -> None:
         """ステータステキストを設定"""
-        self.main_window.status_label.config(text=text)
+        self.main_window.status_label.configure(text=text)

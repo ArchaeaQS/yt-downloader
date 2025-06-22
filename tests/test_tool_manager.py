@@ -30,8 +30,10 @@ class TestToolManager:
 
     def test_init_default_save_dir(self) -> None:
         """デフォルト保存ディレクトリでの初期化テスト"""
+        import os
         tool_manager = ToolManager()
-        expected_path = Path.home() / "AppData" / "Local" / "yt-downloader" / "tools"
+        # Windows専用: %USERPROFILE%\AppData\Local\yt-downloader\tools
+        expected_path = Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "yt-downloader" / "tools"
         assert tool_manager.save_dir == expected_path
 
     def test_get_tool_path(self) -> None:
@@ -169,10 +171,21 @@ class TestToolManager:
         assert result is True
         mock_download.assert_not_called()
 
-    def test_get_platform_info(self) -> None:
-        """プラットフォーム情報取得テスト"""
-        # この関数は実装されていないため、テストはパス
-        pass
+    def test_windows_specific_behavior(self) -> None:
+        """Windows固有の動作テスト"""
+        import os
+        # Windows専用アプリケーションとして、Windows環境でのみ動作することを確認
+        if os.name != "nt":
+            pytest.skip("Windows専用アプリケーションのため、Windows以外ではスキップ")
+        
+        # Windows固有のツールパス処理をテスト
+        tool_manager = ToolManager()
+        tool_path = tool_manager._get_tool_path("test.exe")
+        
+        # Windows固有の期待される動作を検証
+        assert tool_path.suffix == ".exe"
+        assert "AppData" in str(tool_path)
+        assert os.environ.get("USERPROFILE") in str(tool_path)
 
     def test_tool_path_management(self) -> None:
         """ツールパス管理テスト"""

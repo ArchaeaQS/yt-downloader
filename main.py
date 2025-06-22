@@ -1,7 +1,7 @@
-"""YouTube Downloader - メインアプリケーション"""
+"""yt_downloader - メインアプリケーション"""
 from __future__ import annotations
 
-import tkinter as tk
+import customtkinter as ctk
 
 from download.manager import DownloadManager
 from ui.main_window import MainWindow
@@ -12,14 +12,15 @@ class YouTubeDownloaderApp:
     """YouTubeダウンローダーアプリケーション"""
 
     def __init__(self) -> None:
-        self.root = tk.Tk()
+        # CustomTkinterのメインウィンドウを使用
+        self.root = ctk.CTk()
         self.download_manager = DownloadManager()
         self.cookie_manager = CookieManager()
         self.main_window = MainWindow(self.root)
 
         # 起動時設定の読み込み
         self.main_window.load_settings_on_startup()
-        
+
         # 終了時処理の設定
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -131,19 +132,19 @@ class YouTubeDownloaderApp:
         """Cookie更新要求の処理"""
         def request_cookie_refresh():
             result = self.main_window.show_question(
-                "Cookie更新", 
+                "Cookie更新",
                 "Cookieの期限が切れている可能性があります。\n新しいCookieを設定しますか？"
             )
             if result:
                 self._set_cookies()
                 return True
             return False
-        
+
         # メインスレッドで実行
         result = [False]
         def run_in_main():
             result[0] = request_cookie_refresh()
-        
+
         self.root.after(0, run_in_main)
         # 結果を待機（簡易的な同期処理）
         import time
@@ -154,18 +155,18 @@ class YouTubeDownloaderApp:
             if result[0] is not None:
                 break
             time.sleep(0.1)
-        
+
         return result[0]
 
     def _on_closing(self) -> None:
         """アプリケーション終了時の処理"""
         # 設定を保存
         self.main_window.save_settings_on_exit()
-        
+
         # ダウンロード中の場合は停止
         if self.download_manager.state.is_downloading:
             self.download_manager.stop_download()
-        
+
         # アプリケーション終了
         self.root.destroy()
 

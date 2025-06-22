@@ -362,7 +362,8 @@ class DownloadManager:
 
     def get_cookie_file_path(self) -> Path:
         """Cookie ファイルのパスを取得"""
-        return Path.home() / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
+        # Windows専用: %USERPROFILE%\AppData\Local\yt-downloader\cookies.txt
+        return Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
 
     async def _download_video_async(self, url: str, save_folder: str, quality: str, use_browser_cookies: bool) -> None:
         """非同期ダウンロード処理"""

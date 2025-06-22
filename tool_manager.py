@@ -11,8 +11,8 @@ import requests
 class ToolManager:
     def __init__(self, save_dir: str | None = None) -> None:
         if save_dir is None:
-            # ユーザーのホームディレクトリから tools ディレクトリを作成
-            self.save_dir = Path.home() / "AppData" / "Local" / "yt-downloader" / "tools"
+            # Windows専用: %USERPROFILE%\AppData\Local\yt-downloader\tools
+            self.save_dir = Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "yt-downloader" / "tools"
             self.save_dir.mkdir(parents=True, exist_ok=True)
         else:
             self.save_dir = Path(save_dir)

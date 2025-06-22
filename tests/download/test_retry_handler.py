@@ -1,7 +1,7 @@
 """RetryHandlerのテスト"""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,7 +14,7 @@ class TestRetryConfig:
     def test_default_values(self) -> None:
         """デフォルト値テスト"""
         config = RetryConfig()
-        
+
         assert config.max_retries == 3
         assert config.retry_delay == 5.0
         assert config.cookie_refresh_enabled is True
@@ -37,7 +37,7 @@ class TestCookieExpiryDetector:
             "Authentication failed",
             "Login required"
         ]
-        
+
         for message in error_messages:
             assert CookieExpiryDetector.is_cookie_expired(message) is True
 
@@ -49,7 +49,7 @@ class TestCookieExpiryDetector:
             "Video not found",
             "Invalid URL"
         ]
-        
+
         for message in error_messages:
             assert CookieExpiryDetector.is_cookie_expired(message) is False
 
@@ -60,7 +60,7 @@ class TestCookieExpiryDetector:
             "https://www.youtube.com/watch?v=test&list=PLtest123",
             "https://music.youtube.com/playlist/PLtest123"
         ]
-        
+
         for url in playlist_urls:
             assert CookieExpiryDetector.is_playlist_url(url) is True
 
@@ -71,7 +71,7 @@ class TestCookieExpiryDetector:
             "https://youtu.be/test123",
             "https://music.youtube.com/watch?v=test123"
         ]
-        
+
         for url in single_urls:
             assert CookieExpiryDetector.is_playlist_url(url) is False
 
@@ -163,7 +163,7 @@ class TestRetryHandler:
 
         playlist_url = "https://www.youtube.com/playlist?list=test123"
         result = await self.retry_handler.execute_with_retry(cookie_error_operation, playlist_url)
-        
+
         # プレイリストのCookie期限切れの場合は個別ダウンロードが呼ばれる
         individual_download_callback.assert_called_once_with(playlist_url)
 
@@ -193,7 +193,7 @@ class TestPlaylistExtractor:
     async def test_extract_video_urls_success(self) -> None:
         """動画URL抽出成功テスト"""
         from unittest.mock import AsyncMock, Mock, patch
-        
+
         mock_output = "https://youtube.com/watch?v=1\nhttps://youtube.com/watch?v=2\n"
 
         mock_process = Mock()
@@ -211,7 +211,7 @@ class TestPlaylistExtractor:
     async def test_extract_video_urls_process_error(self) -> None:
         """動画URL抽出プロセスエラーテスト"""
         from unittest.mock import AsyncMock, Mock, patch
-        
+
         mock_process = Mock()
         mock_process.communicate = AsyncMock(return_value=(b"", b"Error occurred"))
         mock_process.returncode = 1
@@ -225,7 +225,7 @@ class TestPlaylistExtractor:
     async def test_extract_video_urls_empty_output(self) -> None:
         """動画URL抽出空出力テスト"""
         from unittest.mock import AsyncMock, Mock, patch
-        
+
         mock_process = Mock()
         mock_process.communicate = AsyncMock(return_value=(b"", b""))
         mock_process.returncode = 0
@@ -239,7 +239,7 @@ class TestPlaylistExtractor:
     async def test_extract_video_urls_exception_handling(self) -> None:
         """動画URL抽出例外処理テスト"""
         from unittest.mock import patch
-        
+
         with patch("asyncio.create_subprocess_exec", side_effect=Exception("Process error")):
             result = await self.extractor.extract_video_urls("https://youtube.com/playlist?list=test")
 
@@ -249,7 +249,7 @@ class TestPlaylistExtractor:
     async def test_extract_video_urls_filtering(self) -> None:
         """動画URL抽出フィルタリングテスト"""
         from unittest.mock import AsyncMock, Mock, patch
-        
+
         # 空行や無効なURLを含む出力
         mock_output = "https://youtube.com/watch?v=1\n\ninvalid-url\nhttps://youtube.com/watch?v=2\nhttp://example.com/not-youtube\n"
 
@@ -267,12 +267,12 @@ class TestPlaylistExtractor:
             # 無効なURLは除外される
             assert "invalid-url" not in result
             assert "http://example.com/not-youtube" not in result
-    
+
     def test_is_valid_youtube_url(self) -> None:
         """YouTube URL検証テスト"""
         valid_urls = [
             "https://youtube.com/watch?v=test",
-            "https://www.youtube.com/watch?v=test", 
+            "https://www.youtube.com/watch?v=test",
             "https://music.youtube.com/watch?v=test",
             "https://gaming.youtube.com/watch?v=test",
             "https://youtu.be/test",
@@ -281,7 +281,7 @@ class TestPlaylistExtractor:
             "https://music.youtube.com/playlist?list=test",
             "https://gaming.youtube.com/playlist?list=test",
         ]
-        
+
         invalid_urls = [
             "invalid-url",
             "http://example.com",
@@ -293,9 +293,9 @@ class TestPlaylistExtractor:
             "",
             "ftp://youtube.com/watch",  # プロトコルが違う
         ]
-        
+
         for url in valid_urls:
             assert self.extractor._is_valid_youtube_url(url) is True, f"Should be valid: {url}"
-            
+
         for url in invalid_urls:
             assert self.extractor._is_valid_youtube_url(url) is False, f"Should be invalid: {url}"

@@ -9,7 +9,8 @@ class CookieManager:
     """Cookie管理クラス"""
     
     def __init__(self) -> None:
-        self.cookie_dir = Path.home() / "AppData" / "Local" / "yt-downloader"
+        # Windows専用: %USERPROFILE%\AppData\Local\yt-downloader
+        self.cookie_dir = Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "yt-downloader"
         self.cookie_file = self.cookie_dir / "cookies.txt"
     
     def get_cookie_file_path(self) -> Path:
@@ -34,11 +35,11 @@ class CookieManager:
             # Cookieファイルに保存
             self.cookie_file.write_text(cookies, encoding="utf-8")
             
-            # セキュリティのためファイル権限を設定（Windowsでは効果が限定的）
+            # Windows専用: ファイル権限設定（限定的な効果）
             try:
                 os.chmod(str(self.cookie_file), 0o600)
             except Exception:
-                # Windows等で権限設定に失敗した場合は無視
+                # 権限設定に失敗した場合は無視
                 pass
             
             return True

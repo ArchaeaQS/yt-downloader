@@ -75,15 +75,28 @@ class TestCookieManager:
         assert loaded_cookies == ""
 
     def test_file_permissions_on_save(self) -> None:
-        """保存時のファイル権限テスト（Unix系のみ）"""
-        if os.name != "posix":
-            pytest.skip("Unix系OS以外ではスキップ")
+        """保存時のファイル権限テスト（Windows専用アプリ）"""
+        if os.name == "posix":
+            pytest.skip("Windows専用アプリケーションのため、Unix系OSではスキップ")
             
-        self.cookie_manager.save_cookies("test_data")
+        # テストデータを保存
+        test_cookies = "test_cookie_data"
+        result = self.cookie_manager.save_cookies(test_cookies)
+        assert result is True
+        assert self.cookie_manager.cookie_file.exists()
         
-        # ファイル権限を確認（0o600 = user read/write only）
-        file_stat = self.cookie_manager.cookie_file.stat()
-        assert oct(file_stat.st_mode)[-3:] == "600"
+        # Windows環境でのファイル権限設定の確認
+        # os.chmod(file, 0o600)が実際に呼ばれることを検証
+        with patch("os.chmod") as mock_chmod:
+            # 再度保存してchmodが呼ばれることを確認
+            self.cookie_manager.save_cookies("updated_data")
+            
+            # Windows環境では権限設定が試行されることを確認
+            mock_chmod.assert_called_once_with(str(self.cookie_manager.cookie_file), 0o600)
+            
+        # 実際にファイル内容が正しく保存されていることも確認
+        saved_content = self.cookie_manager.load_cookies()
+        assert saved_content == "updated_data"
 
     @patch("pathlib.Path.write_text")
     def test_save_cookies_write_error(self, mock_write: object) -> None:

@@ -13,7 +13,7 @@ class TestYouTubeDownloaderApp:
     def setup_method(self) -> None:
         """各テストメソッドの前に実行"""
         # 各種モジュールをモック化
-        self.tk_patcher = patch("main.tk.Tk")
+        self.tk_patcher = patch("main.ctk.CTk")
         self.dm_patcher = patch("main.DownloadManager")
         self.cm_patcher = patch("main.CookieManager")
         self.mw_patcher = patch("main.MainWindow")
@@ -93,7 +93,7 @@ class TestApplicationConfiguration:
     def setup_method(self) -> None:
         """各テストメソッドの前に実行"""
         # 各種モジュールをモック化
-        self.tk_patcher = patch("main.tk.Tk")
+        self.tk_patcher = patch("main.ctk.CTk")
         self.dm_patcher = patch("main.DownloadManager")
         self.cm_patcher = patch("main.CookieManager")
         self.mw_patcher = patch("main.MainWindow")
@@ -133,12 +133,9 @@ class TestApplicationConfiguration:
 
     def test_logging_configuration(self) -> None:
         """ログ設定テスト"""
-        # ログ設定が適切に行われることを確認
-        with patch("logging.basicConfig") as mock_logging:
-            from main import main
-            
-            # ログ設定が呼ばれることを確認（実装されている場合）
-            # mock_logging.assert_called()
+        # 現在のアプリケーションではログ設定は実装されていないため、
+        # このテストは不要。削除するか、将来ログ機能が追加された際に実装する。
+        pytest.skip("ログ機能は現在未実装のため、テストをスキップ")
 
     def test_application_metadata(self) -> None:
         """アプリケーションメタデータテスト"""
