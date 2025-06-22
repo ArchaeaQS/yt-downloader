@@ -422,17 +422,20 @@ class MainWindow:
         )
         self.status_label.pack(fill="x", pady=(0, 15))
 
+        # プログレスバー用のプレースホルダーフレーム（常に表示でスペースを確保）
+        self.progress_placeholder = ctk.CTkFrame(progress_content, fg_color="transparent", height=34)
+        self.progress_placeholder.pack(fill="x", pady=(0, 10))
+        self.progress_placeholder.pack_propagate(False)  # 高さを固定
+
         # プログレスバー（CustomTkinter）
         self.progress_bar = ctk.CTkProgressBar(
-            progress_content,
+            self.progress_placeholder,
             width=500,
             height=24,
             progress_color=ModernTheme.CTK_COLORS["progress_bar"],
             corner_radius=12
         )
-        # 初期状態では非表示だが、スペースは確保しておく
-        self.progress_bar.pack(fill="x", pady=(0, 10))
-        self.progress_bar.pack_forget()  # 初期は非表示
+        # 初期状態では非表示
         self.progress_bar.set(0)
 
     def _auto_save_settings(self) -> None:

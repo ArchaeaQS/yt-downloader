@@ -30,11 +30,11 @@ class ModernTheme:
     # ウィンドウサイズ定数
     WINDOW_SIZE = {
         "width": 950,
-        "height": 850,
+        "height": 900,
         "min_width": 950,
-        "min_height": 850,
+        "min_height": 900,
         "tabview_width": 900,
-        "tabview_height": 750,
+        "tabview_height": 800,
     }
 
     # パディング/マージン定数

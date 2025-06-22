@@ -436,8 +436,10 @@ class DownloadManager:
     async def _configure_cookies(self, cmd: list[str], use_browser_cookies: bool, url: str) -> bool:
         """Cookie設定の検証と適用"""
         if use_browser_cookies:
-            # ブラウザからCookie取得
+            # ブラウザからCookie取得（事前チェック不要）
             cmd.extend(["--cookies-from-browser", "firefox"])
+            if self.status_callback:
+                self.status_callback("ブラウザからCookieを取得中...")
             return True
         else:
             # 手動Cookie設定の確認
@@ -617,8 +619,8 @@ class DownloadManager:
                 if self.status_callback:
                     self.status_callback("動画と音声を結合中...")
 
-            # Cookieエラーの検出
-            elif self._is_cookie_error(line):
+            # Cookieエラーの検出（ダウンロードが実際に進行中でない場合のみ）
+            elif self._is_cookie_error(line) and not self._is_download_progressing(line):
                 if self.error_callback:
                     self.error_callback(
                         "メンバー限定動画のダウンロードにはCookieが必要です。\n"
@@ -654,6 +656,21 @@ class DownloadManager:
         ]
 
         return any(keyword in line_lower for keyword in cookie_error_keywords) or any(specific_patterns)
+
+    def _is_download_progressing(self, line: str) -> bool:
+        """ダウンロードが実際に進行中かどうかを判定"""
+        # プログレス情報やダウンロード成功の兆候を検出
+        progress_indicators = [
+            "[download]" in line and "%" in line,  # プログレス表示
+            "downloading" in line.lower(),          # ダウンロード進行中
+            "kb/s" in line.lower() or "mb/s" in line.lower(),  # 速度表示
+            "eta" in line.lower(),                  # 残り時間表示
+            "downloaded" in line.lower(),           # ダウンロード完了
+            "merging" in line.lower(),              # 結合処理
+            "ffmpeg" in line.lower(),               # ffmpeg処理
+        ]
+        
+        return any(indicator for indicator in progress_indicators)
 
     def _detect_download_phase(self, line: str) -> str | None:
         """ダウンロードフェーズの詳細判定"""

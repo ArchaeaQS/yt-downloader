@@ -40,7 +40,7 @@ class ProgressTracker:
 
     def show_progress(self) -> None:
         """プログレスバーを表示"""
-        self.main_window.progress_bar.pack(fill="x", pady=(10, 10))
+        self.main_window.progress_bar.pack(fill="x", pady=(5, 5))
 
     def hide_progress(self) -> None:
         """プログレスバーを非表示"""
