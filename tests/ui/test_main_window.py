@@ -162,13 +162,13 @@ class TestMainWindow:
             self.main_window.state.enable_individual_download.get.return_value = True
             self.main_window.state.get_cookies_from_browser.get.return_value = False
             self.main_window.state.save_folder_var.get.return_value = "C:\\Downloads"
-            
+
             # 自動保存を実行
             self.main_window._auto_save_settings()
-            
+
             # 実際にJSON保存処理が呼ばれることを検証
             mock_json_dump.assert_called_once()
-            
+
             # 保存される設定データの検証
             saved_data = mock_json_dump.call_args[0][0]
             assert saved_data["enable_retry"] is True

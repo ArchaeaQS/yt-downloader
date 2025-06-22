@@ -640,7 +640,7 @@ class DownloadManager:
         cookie_error_keywords = [
             "members-only",
             "private video",
-            "video is private", 
+            "video is private",
             "requires authentication",
             "login required",
             "this video is only available for",
@@ -648,7 +648,7 @@ class DownloadManager:
             "sign in to confirm your age",
             "access denied",
         ]
-        
+
         # より具体的なCookie関連エラーパターン
         specific_patterns = [
             "video unavailable" in line_lower and ("private" in line_lower or "member" in line_lower),
@@ -669,7 +669,7 @@ class DownloadManager:
             "merging" in line.lower(),              # 結合処理
             "ffmpeg" in line.lower(),               # ffmpeg処理
         ]
-        
+
         return any(indicator for indicator in progress_indicators)
 
     def _detect_download_phase(self, line: str) -> str | None:
@@ -721,7 +721,7 @@ class DownloadManager:
 
         # 1. ファイル拡張子による判定（最も確実）
         if ".m4a" in line or ".aac" in line or ".opus" in line or ".mp3" in line:
-            return f"音声を取得中: {percent:.1f}%{speed_info}"
+            return f"音声をダウンロード中: {percent:.1f}%{speed_info}"
         elif ".mp4" in line or ".webm" in line or ".mkv" in line:
             if "audio" not in line_lower:  # 音声キーワードがない場合のみ動画として扱う
                 return f"動画をダウンロード中: {percent:.1f}%{speed_info}"
@@ -730,7 +730,7 @@ class DownloadManager:
         if "downloading audio" in line_lower or (
             ("audio" in line_lower) and ("downloading" in line_lower or "%" in line)
         ):
-            return f"音声を取得中: {percent:.1f}%{speed_info}"
+            return f"音声をダウンロード中: {percent:.1f}%{speed_info}"
         elif "downloading video" in line_lower or (
             ("video" in line_lower) and ("downloading" in line_lower or "%" in line)
         ):
@@ -742,7 +742,7 @@ class DownloadManager:
         if self.state.current_phase == "video":
             return f"動画をダウンロード中: {percent:.1f}%{speed_info}"
         elif self.state.current_phase == "audio":
-            return f"音声を取得中: {percent:.1f}%{speed_info}"
+            return f"音声をダウンロード中: {percent:.1f}%{speed_info}"
         elif self.state.current_phase == "merging":
             return f"動画と音声を結合中: {percent:.1f}%{speed_info}"
         else:
