@@ -174,6 +174,12 @@ class MainWindow:
         x = (self.root.winfo_screenwidth() // 2) - (window_width // 2)
         y = (self.root.winfo_screenheight() // 2) - (window_height // 2)
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        # ウィンドウを最前面に表示
+        self.root.lift()
+        self.root.attributes('-topmost', True)
+        self.root.after_idle(lambda: self.root.attributes('-topmost', False))
+        self.root.focus_force()
 
         # CustomTkinterのルートウィンドウに変換
         try:
