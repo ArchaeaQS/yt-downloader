@@ -1,11 +1,12 @@
 """DownloadManagerのテスト"""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from download.manager import DownloadManager, DownloadState
+from download.manager import DownloadManager, DownloadProcessError, DownloadState
 
 
 class TestDownloadState:
@@ -34,13 +35,19 @@ class TestDownloadManager:
     def teardown_method(self) -> None:
         """各テストメソッドの後に実行"""
         # 非同期ループの適切なクリーンアップ
-        if hasattr(self.download_manager, "asyncio_loop") and self.download_manager.asyncio_loop.is_running():
+        if (
+            hasattr(self.download_manager, "asyncio_loop")
+            and self.download_manager.asyncio_loop.is_running()
+        ):
             # run_forever()で動いているループを停止
             self.download_manager.asyncio_loop.call_soon_threadsafe(
                 self.download_manager.asyncio_loop.stop
             )
             # スレッドの終了を待機
-            if hasattr(self.download_manager, "thread") and self.download_manager.thread.is_alive():
+            if (
+                hasattr(self.download_manager, "thread")
+                and self.download_manager.thread.is_alive()
+            ):
                 self.download_manager.thread.join(timeout=1.0)
 
     def test_init(self) -> None:
@@ -80,27 +87,23 @@ class TestDownloadManager:
         # 実際に存在するテンポラリディレクトリを使用
         with tempfile.TemporaryDirectory() as temp_dir:
             result = self.download_manager._validate_params(
-                "https://www.youtube.com/watch?v=test123",
-                temp_dir
+                "https://www.youtube.com/watch?v=test123", temp_dir
             )
             assert result is True
 
     def test_validate_params_empty_url(self) -> None:
         """空のURL検証テスト"""
         import tempfile
+
         # 実装では空のURLのみを無効として扱う（URL形式チェックはyt-dlpに委譲）
         with tempfile.TemporaryDirectory() as temp_dir:
-            result = self.download_manager._validate_params(
-                "",
-                temp_dir
-            )
+            result = self.download_manager._validate_params("", temp_dir)
             assert result is False
 
     def test_validate_params_empty_folder(self) -> None:
         """空の保存フォルダ検証テスト"""
         result = self.download_manager._validate_params(
-            "https://www.youtube.com/watch?v=test123",
-            ""
+            "https://www.youtube.com/watch?v=test123", ""
         )
         assert result is False
 
@@ -150,6 +153,27 @@ class TestDownloadManager:
         assert self.download_manager.state.process is None
         assert self.download_manager.state.process_pid is None
 
+    @pytest.mark.asyncio
+    async def test_download_failure_cleans_up_state(self) -> None:
+        """ダウンロード失敗時も実行中状態を解除する"""
+        success_callback = MagicMock()
+        self.download_manager.set_callbacks(success_callback=success_callback)
+        self.download_manager._prepare_download()
+
+        with patch.object(
+            self.download_manager, "_execute_download", return_value=False
+        ):
+            await self.download_manager._download_video_async(
+                "https://www.youtube.com/watch?v=test123",
+                "C:\\Downloads",
+                "1080p",
+                True,
+            )
+
+        assert self.download_manager.state.is_downloading is False
+        assert self.download_manager.state.stop_requested is False
+        success_callback.assert_not_called()
+
     def test_get_cookie_file_path(self) -> None:
         """Cookieファイルパス取得テスト"""
         from pathlib import Path
@@ -163,8 +187,7 @@ class TestDownloadManager:
         progress_callback = MagicMock()
         status_callback = MagicMock()
         self.download_manager.set_callbacks(
-            progress_callback=progress_callback,
-            status_callback=status_callback
+            progress_callback=progress_callback, status_callback=status_callback
         )
 
         # yt-dlpの典型的なプログレス出力をテスト（速度情報が隣接する形式）
@@ -181,15 +204,16 @@ class TestDownloadManager:
 
         assert percent == 45.6  # 実際の進捗率
         assert ", 速度: 1.23MiB/s" in status_text  # 速度情報が隣接している場合
-        assert "動画をダウンロード中" in status_text  # デフォルトフェーズでの日本語ステータス
+        assert (
+            "動画をダウンロード中" in status_text
+        )  # デフォルトフェーズでの日本語ステータス
 
     def test_parse_progress_line_without_speed(self) -> None:
         """速度情報なしのプログレス行解析テスト"""
         progress_callback = MagicMock()
         status_callback = MagicMock()
         self.download_manager.set_callbacks(
-            progress_callback=progress_callback,
-            status_callback=status_callback
+            progress_callback=progress_callback, status_callback=status_callback
         )
 
         # 速度情報が含まれていない形式
@@ -275,12 +299,16 @@ class TestDownloadManager:
         """フェーズステータステキスト生成テスト"""
         # 動画ダウンロード
         video_line = "[download] 50% of video.mp4 at 1.5MiB/s"
-        status = self.download_manager._get_phase_status_text(50.0, ", 速度: 1.5MiB/s", video_line)
+        status = self.download_manager._get_phase_status_text(
+            50.0, ", 速度: 1.5MiB/s", video_line
+        )
         assert "動画をダウンロード中" in status
 
         # 音声ダウンロード
         audio_line = "[download] 75% of audio.m4a at 500KiB/s"
-        status = self.download_manager._get_phase_status_text(75.0, ", 速度: 500KiB/s", audio_line)
+        status = self.download_manager._get_phase_status_text(
+            75.0, ", 速度: 500KiB/s", audio_line
+        )
         assert "音声を取得中" in status
 
     @pytest.mark.asyncio
@@ -294,6 +322,37 @@ class TestDownloadManager:
         assert "firefox" in cmd
 
     @pytest.mark.asyncio
+    async def test_execute_download_browser_cookie_failure_releases_state(self) -> None:
+        """ブラウザCookie取得失敗時に実行中状態を解除する"""
+        error_callback = MagicMock()
+        self.download_manager.set_callbacks(error_callback=error_callback)
+        self.download_manager.state.is_downloading = True
+        self.download_manager.tool_manager_instance._get_tool_path.return_value = (
+            "yt-dlp.exe"
+        )
+
+        with patch.object(
+            self.download_manager,
+            "_run_download_process",
+            side_effect=DownloadProcessError(
+                "ERROR: could not copy browser cookie database"
+            ),
+        ):
+            result = await self.download_manager._execute_download(
+                "https://www.youtube.com/watch?v=test123",
+                "C:\\Downloads",
+                "1080",
+                True,
+            )
+
+        assert result is False
+        assert self.download_manager.state.is_downloading is False
+        error_callback.assert_called_once()
+        assert (
+            "ブラウザからCookieを取得できませんでした" in error_callback.call_args[0][0]
+        )
+
+    @pytest.mark.asyncio
     async def test_configure_cookies_manual_mode_with_file(self) -> None:
         """手動Cookie設定テスト（ファイル有り）"""
         cmd = []
@@ -305,7 +364,9 @@ class TestDownloadManager:
             mock_cookie_file.stat.return_value.st_size = 100
             mock_path.return_value = mock_cookie_file
 
-            result = await self.download_manager._configure_cookies(cmd, False, "test_url")
+            result = await self.download_manager._configure_cookies(
+                cmd, False, "test_url"
+            )
 
             assert result is True
             assert "--cookies" in cmd
@@ -338,7 +399,9 @@ class TestDownloadManager:
 
         # Cookie更新要求コールバック
         cookie_refresh_callback = MagicMock(return_value=True)
-        self.download_manager.set_callbacks(cookie_refresh_callback=cookie_refresh_callback)
+        self.download_manager.set_callbacks(
+            cookie_refresh_callback=cookie_refresh_callback
+        )
 
         result = self.download_manager._on_cookie_refresh_request()
         assert result is True
@@ -350,8 +413,7 @@ class TestDownloadManager:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             result = self.download_manager._validate_params(
-                "https://www.youtube.com/watch?v=invalid",
-                temp_dir
+                "https://www.youtube.com/watch?v=invalid", temp_dir
             )
             # URLは有効だが、ネットワークエラーが発生する可能性がある
             assert result is True
@@ -359,14 +421,17 @@ class TestDownloadManager:
     def test_invalid_save_directory(self) -> None:
         """無効な保存ディレクトリのテスト"""
         result = self.download_manager._validate_params(
-            "https://www.youtube.com/watch?v=test123",
-            "/nonexistent/directory/path"
+            "https://www.youtube.com/watch?v=test123", "/nonexistent/directory/path"
         )
         assert result is False
 
     def test_cookie_error_patterns(self) -> None:
         """Cookie関連エラーパターンテスト"""
         error_patterns = [
+            "ERROR: could not copy browser cookie database",
+            "ERROR: could not find Firefox cookies database",
+            "ERROR: failed to read Firefox cookies",
+            "ERROR: unable to extract cookies from browser",
             "ERROR: [youtube] test: This video is only available for Premium members",
             "WARNING: [youtube] test: Sign in to confirm your age",
             "ERROR: Private video. Sign in if you have been granted access",

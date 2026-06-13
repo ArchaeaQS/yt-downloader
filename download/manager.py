@@ -27,6 +27,10 @@ class DownloadState:
         self.current_phase = "video"  # video, audio, merging
 
 
+class DownloadProcessError(Exception):
+    """yt-dlpプロセスの失敗を表す例外"""
+
+
 class DownloadManager:
     """YouTubeダウンロード管理クラス"""
 
@@ -95,7 +99,9 @@ class DownloadManager:
         self.success_callback = success_callback
         self.cookie_refresh_callback = cookie_refresh_callback
 
-    def start_download(self, url: str, save_folder: str, quality: str, use_browser_cookies: bool) -> bool:
+    def start_download(
+        self, url: str, save_folder: str, quality: str, use_browser_cookies: bool
+    ) -> bool:
         """ダウンロードの開始"""
         if not self._validate_params(url, save_folder):
             return False
@@ -107,7 +113,8 @@ class DownloadManager:
 
         self._prepare_download()
         self.state.current_download_task = asyncio.run_coroutine_threadsafe(
-            self._download_video_async(url, save_folder, quality, use_browser_cookies), self.asyncio_loop
+            self._download_video_async(url, save_folder, quality, use_browser_cookies),
+            self.asyncio_loop,
         )
         return True
 
@@ -119,12 +126,17 @@ class DownloadManager:
         self._kill_process_immediately()
 
         # 非同期タスクをキャンセル
-        if self.state.current_download_task and not self.state.current_download_task.done():
+        if (
+            self.state.current_download_task
+            and not self.state.current_download_task.done()
+        ):
             self.state.current_download_task.cancel()
             self.state.current_download_task = None
 
         # 非同期でも停止処理を実行
-        asyncio.run_coroutine_threadsafe(self._immediate_force_stop(), self.asyncio_loop)
+        asyncio.run_coroutine_threadsafe(
+            self._immediate_force_stop(), self.asyncio_loop
+        )
 
         self._cleanup_after_stop()
 
@@ -230,7 +242,9 @@ class DownloadManager:
                         timeout=5,
                     )
                     if self.status_callback:
-                        self.status_callback(f"Taskkill PID {self.state.process_pid}: 戻り値 {result.returncode}")
+                        self.status_callback(
+                            f"Taskkill PID {self.state.process_pid}: 戻り値 {result.returncode}"
+                        )
                 else:
                     # Linux/macOS: killコマンド
                     os.kill(self.state.process_pid, signal.SIGKILL)
@@ -243,12 +257,18 @@ class DownloadManager:
             if sys.platform == "win32":
                 # Windows: yt-dlp.exeプロセスをすべて強制終了
                 result1 = subprocess.run(
-                    ["taskkill", "/F", "/IM", "yt-dlp.exe"], capture_output=True, text=True, timeout=5
+                    ["taskkill", "/F", "/IM", "yt-dlp.exe"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
 
                 # ffmpeg.exeも停止
                 result2 = subprocess.run(
-                    ["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True, text=True, timeout=5
+                    ["taskkill", "/F", "/IM", "ffmpeg.exe"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
 
                 if self.status_callback:
@@ -257,9 +277,13 @@ class DownloadManager:
                     )
             else:
                 # Linux/macOS: pkillコマンド
-                subprocess.run(["pkill", "-9", "-f", "yt-dlp"], capture_output=True, timeout=5)
+                subprocess.run(
+                    ["pkill", "-9", "-f", "yt-dlp"], capture_output=True, timeout=5
+                )
 
-                subprocess.run(["pkill", "-9", "-f", "ffmpeg"], capture_output=True, timeout=5)
+                subprocess.run(
+                    ["pkill", "-9", "-f", "ffmpeg"], capture_output=True, timeout=5
+                )
         except Exception as e:
             if self.status_callback:
                 self.status_callback(f"Process name kill failed: {e}")
@@ -290,22 +314,31 @@ class DownloadManager:
             if sys.platform == "win32":
                 # Windows: tasklist でyt-dlpプロセスを検索
                 result = subprocess.run(
-                    ["tasklist", "/FI", "IMAGENAME eq yt-dlp.exe"], capture_output=True, text=True, timeout=3
+                    ["tasklist", "/FI", "IMAGENAME eq yt-dlp.exe"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
                 )
 
                 if "yt-dlp.exe" in result.stdout:
                     if self.status_callback:
-                        self.status_callback("警告: yt-dlpプロセスが残っています。再度停止ボタンを押してください")
+                        self.status_callback(
+                            "警告: yt-dlpプロセスが残っています。再度停止ボタンを押してください"
+                        )
                 else:
                     if self.status_callback:
                         self.status_callback("プロセスを正常に停止しました")
             else:
                 # Linux/macOS: pgrep でプロセス検索
-                result = subprocess.run(["pgrep", "-f", "yt-dlp"], capture_output=True, text=True, timeout=3)
+                result = subprocess.run(
+                    ["pgrep", "-f", "yt-dlp"], capture_output=True, text=True, timeout=3
+                )
 
                 if result.stdout.strip():
                     if self.status_callback:
-                        self.status_callback("警告: yt-dlpプロセスが残っています。再度停止ボタンを押してください")
+                        self.status_callback(
+                            "警告: yt-dlpプロセスが残っています。再度停止ボタンを押してください"
+                        )
                 else:
                     if self.status_callback:
                         self.status_callback("プロセスを正常に停止しました")
@@ -363,9 +396,17 @@ class DownloadManager:
     def get_cookie_file_path(self) -> Path:
         """Cookie ファイルのパスを取得"""
         # Windows専用: %USERPROFILE%\AppData\Local\yt-downloader\cookies.txt
-        return Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "yt-downloader" / "cookies.txt"
+        return (
+            Path(os.environ["USERPROFILE"])
+            / "AppData"
+            / "Local"
+            / "yt-downloader"
+            / "cookies.txt"
+        )
 
-    async def _download_video_async(self, url: str, save_folder: str, quality: str, use_browser_cookies: bool) -> None:
+    async def _download_video_async(
+        self, url: str, save_folder: str, quality: str, use_browser_cookies: bool
+    ) -> None:
         """非同期ダウンロード処理"""
         try:
             if self.state.stop_requested:
@@ -374,9 +415,15 @@ class DownloadManager:
             # 品質から数値を抽出
             quality_num = quality.split()[0].replace("p", "")
 
-            await self._execute_download(url, save_folder, quality_num, use_browser_cookies)
+            download_succeeded = await self._execute_download(
+                url, save_folder, quality_num, use_browser_cookies
+            )
 
-            if not self.state.stop_requested and self.state.is_downloading:
+            if (
+                download_succeeded
+                and not self.state.stop_requested
+                and self.state.is_downloading
+            ):
                 if self.success_callback:
                     self.success_callback()
                 if self.status_callback:
@@ -393,7 +440,9 @@ class DownloadManager:
         finally:
             self._cleanup_after_completion()
 
-    async def _execute_download(self, url: str, save_folder: str, quality: str, use_browser_cookies: bool) -> None:
+    async def _execute_download(
+        self, url: str, save_folder: str, quality: str, use_browser_cookies: bool
+    ) -> bool:
         """ダウンロードの実行"""
         yt_dlp_path = self.tool_manager_instance._get_tool_path("yt-dlp.exe")
 
@@ -408,7 +457,7 @@ class DownloadManager:
         cookie_configured = await self._configure_cookies(cmd, use_browser_cookies, url)
         if not cookie_configured:
             # Cookie設定が必要だが設定されていない場合、ダウンロードを中止
-            return
+            return False
 
         # サムネイルとメタデータの設定
         cmd.extend(
@@ -429,11 +478,24 @@ class DownloadManager:
                 url,
             ]
         )
+        print("実行コマンド:", " ".join(cmd))
 
-        # プロセス実行
-        await self._run_download_process(cmd)
+        try:
+            # プロセス実行
+            await self._run_download_process(cmd)
+        except DownloadProcessError as e:
+            self.state.is_downloading = False
+            if not self.state.stop_requested and self.error_callback:
+                self.error_callback(
+                    self._format_download_error(str(e), use_browser_cookies)
+                )
+            return False
 
-    async def _configure_cookies(self, cmd: list[str], use_browser_cookies: bool, url: str) -> bool:
+        return not self.state.stop_requested
+
+    async def _configure_cookies(
+        self, cmd: list[str], use_browser_cookies: bool, url: str
+    ) -> bool:
         """Cookie設定の検証と適用"""
         if use_browser_cookies:
             # ブラウザからCookie取得（事前チェック不要）
@@ -464,7 +526,9 @@ class DownloadManager:
                 *info_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW
+                if sys.platform == "win32"
+                else 0,
             )
 
             stdout, stderr = await process.communicate()
@@ -495,7 +559,9 @@ class DownloadManager:
                 else:
                     # その他のエラーの場合は、Cookieなしで続行を試みる
                     if self.status_callback:
-                        self.status_callback("警告: 動画情報の事前取得に失敗しましたが、ダウンロードを続行します")
+                        self.status_callback(
+                            "警告: 動画情報の事前取得に失敗しましたが、ダウンロードを続行します"
+                        )
                     return True
             else:
                 # 正常に情報取得できた場合はCookieなしで問題なし
@@ -511,13 +577,16 @@ class DownloadManager:
 
     async def _run_download_process(self, cmd: list[str]) -> None:
         """ダウンロードプロセスの実行とプログレス監視"""
+        output_lines: list[str] = []
         try:
             # プロセスを開始
             self.state.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW
+                if sys.platform == "win32"
+                else 0,
             )
 
             # プロセスIDを保存
@@ -528,6 +597,7 @@ class DownloadManager:
 
             # 出力を監視してプログレスを更新
             async for line in self._read_process_output():
+                output_lines.append(line)
                 if self.state.stop_requested:
                     # 停止要求があった場合、プロセスを即座に強制終了
                     await self._force_stop_process()
@@ -537,6 +607,8 @@ class DownloadManager:
             # プロセスの完了を待機
             if not self.state.stop_requested:
                 await self.state.process.wait()
+                if self.state.process.returncode != 0:
+                    raise DownloadProcessError("\n".join(output_lines[-20:]))
             else:
                 # 停止要求があった場合は強制終了を確認
                 await self._force_stop_process()
@@ -555,6 +627,9 @@ class DownloadManager:
                 except Exception:
                     pass
             raise
+        finally:
+            self.state.process = None
+            self.state.process_pid = None
 
     async def _read_process_output(self) -> AsyncIterable[str]:
         """プロセス出力の非同期読み取り"""
@@ -571,7 +646,9 @@ class DownloadManager:
 
                 try:
                     # タイムアウト付きで行を読み取り
-                    line = await asyncio.wait_for(self.state.process.stdout.readline(), timeout=1.0)
+                    line = await asyncio.wait_for(
+                        self.state.process.stdout.readline(), timeout=1.0
+                    )
                     if not line:
                         break
                     yield line.decode("utf-8", errors="ignore").strip()
@@ -600,11 +677,15 @@ class DownloadManager:
 
                             # 速度情報があれば取得
                             speed_info = ""
-                            if i + 1 < len(parts) and ("MiB/s" in parts[i + 1] or "KiB/s" in parts[i + 1]):
+                            if i + 1 < len(parts) and (
+                                "MiB/s" in parts[i + 1] or "KiB/s" in parts[i + 1]
+                            ):
                                 speed_info = f", 速度: {parts[i + 1]}"
 
                             # フェーズに応じたステータステキスト
-                            status_text = self._get_phase_status_text(percent, speed_info, line)
+                            status_text = self._get_phase_status_text(
+                                percent, speed_info, line
+                            )
 
                             # プログレス更新
                             if self.progress_callback:
@@ -614,13 +695,19 @@ class DownloadManager:
                             continue
 
             # ffmpegの結合処理を検出
-            elif "ffmpeg" in line.lower() or "Merging" in line or "merging" in line.lower():
+            elif (
+                "ffmpeg" in line.lower()
+                or "Merging" in line
+                or "merging" in line.lower()
+            ):
                 self.state.current_phase = "merging"
                 if self.status_callback:
                     self.status_callback("動画と音声を結合中...")
 
             # Cookieエラーの検出（ダウンロードが実際に進行中でない場合のみ）
-            elif self._is_cookie_error(line) and not self._is_download_progressing(line):
+            elif self._is_cookie_error(line) and not self._is_download_progressing(
+                line
+            ):
                 if self.error_callback:
                     self.error_callback(
                         "メンバー限定動画のダウンロードにはCookieが必要です。\n"
@@ -628,6 +715,7 @@ class DownloadManager:
                         "「ブラウザからCookieを自動取得する」にチェックを入れてください。"
                     )
                 # ダウンロードを停止
+                self.state.is_downloading = False
                 self.state.stop_requested = True
 
         except Exception:
@@ -638,6 +726,11 @@ class DownloadManager:
         """Cookie関連のエラーかどうかを判定"""
         line_lower = line.lower()
         cookie_error_keywords = [
+            "could not copy browser cookie database",
+            "could not find firefox cookies database",
+            "failed to read firefox cookies",
+            "failed to decrypt with dpapi",
+            "unable to extract cookies from browser",
             "members-only",
             "private video",
             "video is private",
@@ -651,23 +744,50 @@ class DownloadManager:
 
         # より具体的なCookie関連エラーパターン
         specific_patterns = [
-            "video unavailable" in line_lower and ("private" in line_lower or "member" in line_lower),
+            "video unavailable" in line_lower
+            and ("private" in line_lower or "member" in line_lower),
             "video unavailable" in line_lower and "sign in" in line_lower,
         ]
 
-        return any(keyword in line_lower for keyword in cookie_error_keywords) or any(specific_patterns)
+        return any(keyword in line_lower for keyword in cookie_error_keywords) or any(
+            specific_patterns
+        )
+
+    def _format_download_error(
+        self, error_output: str, use_browser_cookies: bool
+    ) -> str:
+        """yt-dlpの失敗内容をユーザー向けメッセージに整形"""
+        if use_browser_cookies and self._is_cookie_error(error_output):
+            return (
+                "ブラウザからCookieを取得できませんでした。\n"
+                "Firefoxを閉じてから再試行するか、Cookie設定から手動でCookieを設定してください。"
+            )
+
+        if self._is_cookie_error(error_output):
+            return (
+                "メンバー限定動画のダウンロードにはCookieが必要です。\n"
+                "「Cookie設定」ボタンからCookieを設定するか、\n"
+                "「ブラウザからCookieを自動取得する」にチェックを入れてください。"
+            )
+
+        detail = (
+            error_output.strip().splitlines()[-1]
+            if error_output.strip()
+            else "詳細不明のエラー"
+        )
+        return f"ダウンロードに失敗しました: {detail}"
 
     def _is_download_progressing(self, line: str) -> bool:
         """ダウンロードが実際に進行中かどうかを判定"""
         # プログレス情報やダウンロード成功の兆候を検出
         progress_indicators = [
             "[download]" in line and "%" in line,  # プログレス表示
-            "downloading" in line.lower(),          # ダウンロード進行中
+            "downloading" in line.lower(),  # ダウンロード進行中
             "kb/s" in line.lower() or "mb/s" in line.lower(),  # 速度表示
-            "eta" in line.lower(),                  # 残り時間表示
-            "downloaded" in line.lower(),           # ダウンロード完了
-            "merging" in line.lower(),              # 結合処理
-            "ffmpeg" in line.lower(),               # ffmpeg処理
+            "eta" in line.lower(),  # 残り時間表示
+            "downloaded" in line.lower(),  # ダウンロード完了
+            "merging" in line.lower(),  # 結合処理
+            "ffmpeg" in line.lower(),  # ffmpeg処理
         ]
 
         return any(indicator for indicator in progress_indicators)
@@ -677,7 +797,10 @@ class DownloadManager:
         line_lower = line.lower()
 
         # ffmpeg処理の検出
-        if any(keyword in line_lower for keyword in ["merging", "ffmpeg", "post-processing"]):
+        if any(
+            keyword in line_lower
+            for keyword in ["merging", "ffmpeg", "post-processing"]
+        ):
             return "merging"
 
         # ダウンロード行の詳細解析
@@ -702,7 +825,9 @@ class DownloadManager:
             # 3. フォーマットIDパターンの判定
             # 例: [download] 100% of 123.45MiB in 00:30
             # または [download] Downloading item 1 of 1
-            if "of" in line and ("mib" in line_lower or "kib" in line_lower or "gib" in line_lower):
+            if "of" in line and (
+                "mib" in line_lower or "kib" in line_lower or "gib" in line_lower
+            ):
                 # 現在のフェーズを維持（変更しない）
                 return None
 
@@ -735,7 +860,10 @@ class DownloadManager:
             ("video" in line_lower) and ("downloading" in line_lower or "%" in line)
         ):
             return f"動画をダウンロード中: {percent:.1f}%{speed_info}"
-        elif any(keyword in line_lower for keyword in ["merging", "ffmpeg", "post-processing"]):
+        elif any(
+            keyword in line_lower
+            for keyword in ["merging", "ffmpeg", "post-processing"]
+        ):
             return f"動画と音声を結合中: {percent:.1f}%{speed_info}"
 
         # 3. 現在のフェーズに基づく判定（フォールバック）
@@ -751,7 +879,9 @@ class DownloadManager:
     def _on_retry_attempt(self, retry_count: int, error_message: str) -> None:
         """リトライ試行時のコールバック"""
         if self.status_callback:
-            self.status_callback(f"リトライ中 ({retry_count}回目): {error_message[:50]}...")
+            self.status_callback(
+                f"リトライ中 ({retry_count}回目): {error_message[:50]}..."
+            )
 
     def _on_cookie_refresh_request(self) -> bool:
         """Cookie更新要求時のコールバック"""
@@ -773,11 +903,15 @@ class DownloadManager:
 
             if not video_info:
                 if self.error_callback:
-                    self.error_callback("プレイリストから動画リストを取得できませんでした")
+                    self.error_callback(
+                        "プレイリストから動画リストを取得できませんでした"
+                    )
                 return False
 
             if self.status_callback:
-                self.status_callback(f"プレイリストから{len(video_info)}個の動画を検出。個別ダウンロードを開始...")
+                self.status_callback(
+                    f"プレイリストから{len(video_info)}個の動画を検出。個別ダウンロードを開始..."
+                )
 
             success_count = 0
             total_count = len(video_info)
@@ -794,19 +928,29 @@ class DownloadManager:
                     await self._execute_download(
                         video_url,
                         # 現在の設定を使用
-                        self.state.save_folder if hasattr(self.state, "save_folder") else "",
-                        self.state.quality if hasattr(self.state, "quality") else "1080",
-                        self.state.use_browser_cookies if hasattr(self.state, "use_browser_cookies") else False,
+                        self.state.save_folder
+                        if hasattr(self.state, "save_folder")
+                        else "",
+                        self.state.quality
+                        if hasattr(self.state, "quality")
+                        else "1080",
+                        self.state.use_browser_cookies
+                        if hasattr(self.state, "use_browser_cookies")
+                        else False,
                     )
                     success_count += 1
 
                 except Exception as e:
                     if self.error_callback:
-                        self.error_callback(f"動画 '{title}' のダウンロードに失敗: {str(e)[:50]}...")
+                        self.error_callback(
+                            f"動画 '{title}' のダウンロードに失敗: {str(e)[:50]}..."
+                        )
                     continue
 
             if self.status_callback:
-                self.status_callback(f"個別ダウンロード完了: {success_count}/{total_count} 成功")
+                self.status_callback(
+                    f"個別ダウンロード完了: {success_count}/{total_count} 成功"
+                )
 
             return success_count > 0
 
@@ -815,10 +959,14 @@ class DownloadManager:
                 self.error_callback(f"個別ダウンロード処理エラー: {str(e)}")
             return False
 
-    def update_retry_config(self, enable_retry: bool, max_retries: int, enable_individual_download: bool) -> None:
+    def update_retry_config(
+        self, enable_retry: bool, max_retries: int, enable_individual_download: bool
+    ) -> None:
         """リトライ設定の更新"""
         self.retry_config.max_retries = max_retries if enable_retry else 0
-        self.retry_config.individual_download_on_playlist_fail = enable_individual_download
+        self.retry_config.individual_download_on_playlist_fail = (
+            enable_individual_download
+        )
 
 
 # 型チェック用のAsyncIterableのインポート
