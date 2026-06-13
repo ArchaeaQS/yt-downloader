@@ -1,4 +1,5 @@
 """yt_downloader - メインアプリケーション"""
+
 from __future__ import annotations
 
 import customtkinter as ctk
@@ -63,7 +64,7 @@ class YouTubeDownloaderApp:
         self.download_manager.update_retry_config(
             enable_retry=self.main_window.state.enable_retry.get(),
             max_retries=self.main_window.state.max_retries.get(),
-            enable_individual_download=self.main_window.state.enable_individual_download.get()
+            enable_individual_download=self.main_window.state.enable_individual_download.get(),
         )
 
         # UIを更新
@@ -100,6 +101,7 @@ class YouTubeDownloaderApp:
 
     def _on_progress_update(self, percent: float, status_text: str) -> None:
         """プログレス更新処理"""
+
         def update_ui():
             self.main_window.progress_tracker.update_progress(percent, status_text)
 
@@ -107,6 +109,7 @@ class YouTubeDownloaderApp:
 
     def _on_status_update(self, status_text: str) -> None:
         """ステータス更新処理"""
+
         def update_ui():
             self.main_window.progress_tracker.set_status(status_text)
 
@@ -114,6 +117,7 @@ class YouTubeDownloaderApp:
 
     def _on_error(self, error_message: str) -> None:
         """エラー処理"""
+
         def show_error():
             self.main_window.set_download_in_progress(False)
             self.main_window.show_error("エラー", error_message)
@@ -122,6 +126,7 @@ class YouTubeDownloaderApp:
 
     def _on_success(self) -> None:
         """成功処理"""
+
         def show_success():
             self.main_window.set_download_in_progress(False)
             self.main_window.show_info("成功", "動画のダウンロードが完了しました！")
@@ -130,10 +135,10 @@ class YouTubeDownloaderApp:
 
     def _on_cookie_refresh_request(self) -> bool:
         """Cookie更新要求の処理"""
+
         def request_cookie_refresh():
             result = self.main_window.show_question(
-                "Cookie更新",
-                "Cookieの期限が切れている可能性があります。\n新しいCookieを設定しますか？"
+                "Cookie更新", "Cookieの期限が切れている可能性があります。\n新しいCookieを設定しますか？"
             )
             if result:
                 self._set_cookies()
@@ -142,12 +147,14 @@ class YouTubeDownloaderApp:
 
         # メインスレッドで実行
         result = [False]
+
         def run_in_main():
             result[0] = request_cookie_refresh()
 
         self.root.after(0, run_in_main)
         # 結果を待機（簡易的な同期処理）
         import time
+
         timeout = 10  # 10秒でタイムアウト
         start_time = time.time()
         while time.time() - start_time < timeout:
